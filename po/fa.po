@@ -1,455 +1,438 @@
-#, fuzzy
 msgid ""
 msgstr ""
+
 "Project-Id-Version: Yet Another Radio\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-12-10 10:26+0000\n"
-"PO-Revision-Date: 2025-12-12 23:46+0500\n"
+"PO-Revision-Date: 2025-12-16 05:19+0000\n"
 "Last-Translator: Mahyar Darvishi <buddysirjava@duck.com>\n"
-"Language: \n"
+"Language-Team: Persian\n"
+"Language: fa\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"\n"
 "X-Loco-Source-Locale: en_GB\n"
 "X-Loco-Parser: loco_parse_po\n"
 "X-Generator: Loco https://localise.biz/"
 
 #: yetanotherradio@io.github.buddysirjava/extension.js:19
 msgid "Yet Another Radio"
-msgstr ""
+msgstr "Yet Another Radio"
 
 #: yetanotherradio@io.github.buddysirjava/extension.js:73
-msgctxt "بازکردن تنظیمات"
 msgid "Open preferences"
-msgstr ""
+msgstr "بازکردن تنظیمات"
+
+
 
 #: yetanotherradio@io.github.buddysirjava/extension.js:77
-msgctxt "برای اضافه کردن ایستگاه رادیویی از تنظیمات استفاده کنید."
 msgid "Use preferences to add stations."
-msgstr ""
+msgstr "برای اضافه کردن ایستگاه رادیویی از تنظیمات استفاده کنید."
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:28 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:929 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:945
-msgctxt "ایستگاه های ذخیره شده"
 msgid "Saved Stations"
-msgstr ""
+msgstr "ایستگاه های ذخیره شده"
+
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:35
-msgctxt "ایستگاه های ذخیره شده"
 msgid "Saved stations"
-msgstr ""
+msgstr "ایستگاه های ذخیره شده"
+
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:36
-msgctxt "این ایستگاه‌ها در منوی نشانگر پنل نمایان خواهند شد."
+
 msgid "These stations appear in the panel indicator menu."
-msgstr ""
+msgstr "این ایستگاه‌ها در منوی نشانگر پنل نمایان خواهند شد."
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:64
-msgctxt "هیچ ایستگاهی ذخیره نشده است."
 msgid "No stations saved yet."
-msgstr ""
+msgstr "هیچ ایستگاهی ذخیره نشده است."
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:65
-msgctxt "از زبانه «اضافه‌کردن ایستگاه» برای اضافه کردن استفاده کنید."
 msgid "Use the Add Stations tab to add some."
-msgstr ""
+msgstr "از زبانه «اضافه‌کردن ایستگاه» برای اضافه کردن استفاده کنید."
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:115
-msgctxt "تغیردادن"
 msgid "Edit"
-msgstr ""
+msgstr "تغیردادن"
+
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:123
-msgctxt "حذف از علاقه‌مندی ها"
 msgid "Remove from favorites"
-msgstr ""
+msgstr "حذف از علاقه‌مندی ها"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:123
-msgctxt "اضافه‌کردن به علاقه‌مندی ها"
 msgid "Add to favorites"
-msgstr ""
+msgstr "اضافه‌کردن به علاقه‌مندی ها"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:131 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:178 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:576
-msgctxt "حذف"
 msgid "Remove"
-msgstr ""
+msgstr "حذف"
+
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:171 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:569
-msgctxt "آیا ایستگاه حذف شود؟"
 msgid "Remove Station?"
-msgstr ""
+msgstr "آیا ایستگاه حذف شود؟"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:172 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:570
 #, javascript-format
-msgctxt "آیا از حذف \"%s\" اطمینان دارید؟"
 msgid "Are you sure you want to remove \"%s\"?"
-msgstr ""
+msgstr "آیا از حذف \"%s\" اطمینان دارید؟"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:177 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:228 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:575
-msgctxt "لغو"
 msgid "Cancel"
-msgstr ""
+msgstr "لغو"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:201
-msgctxt "تغیر ایستگاه"
 msgid "Edit Station"
-msgstr ""
+msgstr "تغیر ایستگاه"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:202
-msgctxt "تغیر جزئیات ایستگاه"
 msgid "Edit station details"
-msgstr ""
+msgstr "تغیر جزئیات ایستگاه"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:209 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:357
-msgctxt "نام ایستگاه"
 msgid "Station name"
-msgstr ""
+msgstr "نام ایستگاه"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:214 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:362
-msgctxt "آدرس جریان"
 msgid "Stream URL"
-msgstr ""
+msgstr "آدرس جریان"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:229 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:818
-msgctxt "ذخیره"
 msgid "Save"
-msgstr ""
+msgstr "ذخیره"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:284 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:930 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:948
-msgctxt "اضافه کردن ایستگاه رادیویی"
 msgid "Add Stations"
-msgstr ""
+msgstr "اضافه کردن ایستگاه رادیویی"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:296
-msgctxt "جستجوی ایستگاه‌ها"
 msgid "Search stations"
-msgstr ""
+msgstr "جستجوی ایستگاه‌ها"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:297
-msgctxt "شبکه Radio Browser را جستجو کنید و ایستگاه‌ها را ذخیره کنید."
 msgid "Search the Radio Browser network and save stations."
-msgstr ""
+msgstr "شبکه Radio Browser را جستجو کنید و ایستگاه‌ها را ذخیره کنید."
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:302
-msgctxt "عبارت جستجو"
 msgid "Search query"
-msgstr ""
+msgstr "عبارت جستجو"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:327
-msgctxt "جستجو"
 msgid "Search"
-msgstr ""
+msgstr "جستجو"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:341
-msgctxt "نتایج جستجو"
 msgid "Search results"
-msgstr ""
+msgstr "نتایج جستجو"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:350
-msgctxt "اضافه‌کردن دستی ایستگاه"
 msgid "Add station manually"
-msgstr ""
+msgstr "اضافه‌کردن دستی ایستگاه"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:351
-msgctxt "نام ایستگاه و آدرس جریان را وارد کنید تا مستقیم اضافه شود."
 msgid "Enter a station name and URL to add it directly."
-msgstr ""
+msgstr "نام ایستگاه و آدرس جریان را وارد کنید تا مستقیم اضافه شود."
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:367
-msgctxt "اضافه‌کردن ایستگاه"
 msgid "Add Station"
-msgstr ""
+msgstr "اضافه‌کردن ایستگاه"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:469 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:545 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:640
-msgctxt "حذف از ایستگاه‌های ذخیره شده"
 msgid "Remove from saved stations"
-msgstr ""
+msgstr "حذف از ایستگاه‌های ذخیره شده"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:469 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:609 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:647
-msgctxt "اضافه به ایستگاه‌های ذخیره شده"
 msgid "Add to saved stations"
-msgstr ""
+msgstr "اضافه به ایستگاه‌های ذخیره شده"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:502
-msgctxt "ایستگاهی یافت نشد."
 msgid "No stations found."
-msgstr ""
+msgstr "ایستگاهی یافت نشد."
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:698 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:928 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:941
-msgctxt "عمومی"
 msgid "General"
-msgstr ""
+msgstr "عمومی"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:707
-msgctxt "تنظیمات عمومی"
 msgid "General Settings"
-msgstr ""
+msgstr "تنظیمات عمومی"
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:708
-msgctxt "رفتار کلی افزونه را تنظیم کنید."
 msgid "Configure general extension behavior."
-msgstr ""
+msgstr "رفتار کلی افزونه را تنظیم کنید."
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:713
-msgctxt "فعال‌سازی کلیدهای رسانه‌ای"
 msgid "Enable Media Keys"
-msgstr ""
+msgstr "فعال‌سازی کلیدهای رسانه‌ای"
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:714
-msgctxt ""
-"از کلیدهای رسانه‌ای صفحه کلید (پخش/مکث، توقف) برای کنترل جریان پخش استفاده "
-"کنید."
 msgid "Use keyboard media keys (Play/Pause, Stop) to control playback"
 msgstr ""
+"از کلیدهای رسانه‌ای صفحه کلید (پخش/مکث، توقف) برای کنترل جریان پخش استفاده "
+"کنید."
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:729
-msgctxt "نشان‌دادن اطلاعات اضافی"
 msgid "Show Metadata"
-msgstr ""
+msgstr "نشان‌دادن اطلاعات اضافی"
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:730
-msgctxt ""
-"نشان‌دادن اطلاعات مربوط به آهنگ (عنوان، هنرمند، طرح‌نگاره آلبوم) در منو"
 msgid "Display track information (title, artist, album art) in the menu"
 msgstr ""
+"نشان‌دادن اطلاعات مربوط به آهنگ (عنوان، هنرمند، طرح‌نگاره آلبوم) در منو"
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:745
-msgctxt "پخش خودکار آخرین ایستگاه"
 msgid "Auto-play Last Station"
-msgstr ""
+msgstr "پخش خودکار آخرین ایستگاه"
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:746
-msgctxt "آخرین ایستگاه را به‌طور خودکار هنگام فعال‌سازی افزونه پخش کن"
 msgid "Automatically play the last played station when extension is enabled"
-msgstr ""
+msgstr "آخرین ایستگاه را به‌طور خودکار هنگام فعال‌سازی افزونه پخش کن"
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:761
-msgctxt "واردکردن/صادر‌کردن"
 msgid "Import / Export"
-msgstr ""
+msgstr "واردکردن/صادر‌کردن"
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:762
-msgctxt "از لیست ایستگاه‌های خود، پشتیبانی بگیرید و یا آنها را برگردانید."
 msgid "Backup or restore your station list."
-msgstr ""
+msgstr "از لیست ایستگاه‌های خود، پشتیبانی بگیرید و یا آنها را برگردانید."
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:767 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:816
-msgctxt "صادرکردن رادیو‌ها"
 msgid "Export Stations"
-msgstr ""
+msgstr "صادرکردن رادیو‌ها"
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:768
-msgctxt "رادیو‌های ذخیره‌شده خود را به شکل یک سند صادر کنید"
 msgid "Export your saved stations to a file"
-msgstr ""
+msgstr "رادیو‌های ذخیره‌شده خود را به شکل یک سند صادر کنید"
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:782 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:856
-msgctxt "واردکردن ایستگاه‌ها"
 msgid "Import Stations"
-msgstr ""
+msgstr "واردکردن ایستگاه‌ها"
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:783
-msgctxt "ایستگاه‌های خود را از طریق سند پشتیبان وارد کنید"
 msgid "Import stations from a backup file"
-msgstr ""
+msgstr "ایستگاه‌های خود را از طریق سند پشتیبان وارد کنید"
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:834
-msgctxt "صدور ایستگاه‌ها موفقیت‌آمیز بود"
 msgid "Stations exported successfully"
-msgstr ""
+msgstr "صدور ایستگاه‌ها موفقیت‌آمیز بود"
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:837 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:850
-msgctxt "صدور ایستگاه‌ها با شکست مواجه شد"
 msgid "Failed to export stations"
-msgstr ""
+msgstr "صدور ایستگاه‌ها با شکست مواجه شد"
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:858
-msgctxt "وارد کردن"
 msgid "Import"
-msgstr ""
+msgstr "وارد کردن"
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:871
-msgctxt "ساختار سند معتبر نیست"
 msgid "Invalid file format"
-msgstr ""
+msgstr "ساختار سند معتبر نیست"
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:879
-msgctxt "ایستگاه جدیدی برای اضافه‌کردن یافت نشد"
 msgid "No new stations to import"
-msgstr ""
+msgstr "ایستگاه جدیدی برای اضافه‌کردن یافت نشد"
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:885
 #, javascript-format
-msgctxt "%d ایستگاه وارد شد"
 msgid "Imported %d station(s)"
-msgstr ""
+msgstr "%d ایستگاه وارد شد"
+
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:891
-msgctxt "وارد کردن ایستگاه‌ها با شکست مواجه شد. ساختار سند معتبر نیست."
 msgid "Failed to import stations. Invalid file format."
-msgstr ""
+msgstr "وارد کردن ایستگاه‌ها با شکست مواجه شد. ساختار سند معتبر نیست."
+
 
 #: yetanotherradio@io.github.buddysirjava/radioUtils.js:30
 msgid "Could not create storage directory. Check file permissions."
-msgstr ""
+msgstr "عدم توانایی تشکیل زیرشاخه‌های موردنظر، لطفا دسترسی های اسناد را بررسی کنید."
 
 #: yetanotherradio@io.github.buddysirjava/radioUtils.js:92
 msgid "Permission denied. Cannot save stations file."
-msgstr ""
+msgstr "اجازه ذخیره فایل های ایستگاه‌ها داده نشد."
 
 #: yetanotherradio@io.github.buddysirjava/radioUtils.js:94
 #, javascript-format
-msgctxt "ذخیره‌سازی ایستگاه‌های (%s) با شکست مواجه شد."
 msgid "Failed to save stations: %s"
-msgstr ""
+msgstr "ذخیره‌سازی ایستگاه‌های (%s) با شکست مواجه شد."
+
 
 #: yetanotherradio@io.github.buddysirjava/radioUtils.js:94
-msgctxt "خطای نامعلوم"
 msgid "Unknown error"
-msgstr ""
+msgstr "خطای نامعلوم"
+
 
 #: yetanotherradio@io.github.buddysirjava/radioUtils.js:99
-msgctxt "ایستگاه نامگذاری نشده"
 msgid "Unnamed station"
-msgstr ""
+msgstr "ایستگاه نامگذاری نشده"
+
 
 #: yetanotherradio@io.github.buddysirjava/radioUtils.js:196 
 #: yetanotherradio@io.github.buddysirjava/radioUtils.js:233
 msgid "Network request timed out. Please check your internet connection."
-msgstr ""
+msgstr "test"
 
 #: yetanotherradio@io.github.buddysirjava/radioUtils.js:198
 msgid "All radio servers failed to respond. Please try again later."
-msgstr ""
+msgstr "تمام سرور های رادیویی با مشکل مواجه شده‌اند. لطفا بعدا دوباره تلاش کنید."
 
 #: yetanotherradio@io.github.buddysirjava/radioUtils.js:200
 msgid "All radio servers failed to respond."
-msgstr ""
+msgstr "خطا در پاسخگویی تمام سرورها"
 
 #: yetanotherradio@io.github.buddysirjava/radioUtils.js:214
 msgid "Radio Browser server list is empty."
-msgstr ""
+msgstr "لیست سرور در مرورگر رادیو خالی است."
 
 #: yetanotherradio@io.github.buddysirjava/radioUtils.js:244
 msgid "Resource not found. The server may be unavailable."
-msgstr ""
+msgstr "efd"
 
 #: yetanotherradio@io.github.buddysirjava/radioUtils.js:246
 msgid "Server error. Please try again later."
-msgstr ""
+msgstr "خطای سرور، لطفا کمی بعد تلاش کنید."
 
 #: yetanotherradio@io.github.buddysirjava/radioUtils.js:248
 #, javascript-format
 msgid "Request failed with status %s"
-msgstr ""
+msgstr "test "
 
 #: yetanotherradio@io.github.buddysirjava/radioUtils.js:255
 msgid "Invalid response from server."
 msgstr ""
 
+
 #: yetanotherradio@io.github.buddysirjava/modules/metadataDisplay.js:247
 msgid "Unknown title"
-msgstr ""
+msgstr "عنوان نامعلوم"
 
 #: yetanotherradio@io.github.buddysirjava/modules/metadataDisplay.js:248
 msgid "Unknown artist"
-msgstr ""
+msgstr "هنرمند نامعلوم"
 
 #: yetanotherradio@io.github.buddysirjava/modules/playbackManager.js:94
 msgid "Could not play the selected station."
-msgstr ""
+msgstr "پخش ایستگاه انتخاب‌شده با شکست مواجه شد."
 
 #: yetanotherradio@io.github.buddysirjava/modules/playbackManager.js:123 
 #: yetanotherradio@io.github.buddysirjava/modules/playbackManager.js:167
 msgid "Playback error"
-msgstr ""
+msgstr "خطای بازپخش"
 
 #: yetanotherradio@io.github.buddysirjava/modules/playbackManager.js:163
 #, javascript-format
 msgid "Playing %s"
-msgstr ""
+msgstr "درحال پخش %s"
 
 #: yetanotherradio@io.github.buddysirjava/modules/stationMenu.js:73
 msgid "No saved stations yet. Use preferences to add some."
-msgstr ""
+msgstr "هنوز هیچ ایستگاهی ذخیره نشده است."
 
 #: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:6
 msgid "Metadata update interval"
-msgstr ""
+msgstr "test"
+
 
 #: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:7
 msgid "Interval in seconds for updating track metadata while playing"
-msgstr ""
+msgstr "test"
+
 
 #: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:13
 msgid "HTTP request timeout"
-msgstr ""
+msgstr "test"
+
 
 #: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:14
 msgid "Timeout in seconds for HTTP requests to radio browser API"
-msgstr ""
+msgstr "تمام شدن زمان پاسخ‌گویی به ثانه برای درخواست های HTTP برای API مرورگر رادیو"
 
 #: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:20
 msgid "Search result limit"
-msgstr ""
+msgstr "محدودیت نتایج جستجو"
 
 #: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:21
 msgid "Maximum number of search results to display"
-msgstr ""
+msgstr "test"
 
 #: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:27
 msgid "Show metadata"
-msgstr ""
+msgstr "نشان دادن اطلاعات اضافه"
 
 #: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:28
 msgid "Show track metadata (title, artist, album art) in the menu"
-msgstr ""
+msgstr "نشان دادن دیتا های اضافی (عنوان، هنرمند و نگاره آلبوم) در منو"
 
 #: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:33
 msgid "Auto-play last station"
-msgstr ""
+msgstr "پخش خودکار"
 
 #: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:34
 msgid ""
 "Automatically play the last played station when the extension is enabled"
-msgstr ""
+msgstr "آخرین ایستگاه را همراه با فعال شدن افزونه، خودکار پخش کن"
 
 #: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:39
 msgid "Enable media keys"
-msgstr ""
+msgstr "فعال‌کردن کلید های رسانه‌ای"
 
 #: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:40
-msgid ""
-"Enable global keyboard media keys (Play/Pause, Stop) to control playback"
-msgstr ""
+msgid "Enable global keyboard media keys (Play/Pause, Stop) to control playback"
+msgstr "فعال کردن کلیدهای رسانه‌ای صفحه‌کلید (پخش،مکث یا توقف) برای کنترل بازپخش"
 
 #: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:45
 msgid "Volume"
-msgstr ""
+msgstr "صدا"
 
 #: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:46
 msgid "Playback volume (0-100)"
-msgstr ""
+msgstr "صدای "
