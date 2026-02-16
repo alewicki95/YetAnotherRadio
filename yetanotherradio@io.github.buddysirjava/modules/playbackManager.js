@@ -41,7 +41,7 @@ export default class PlaybackManager {
 
     _initGst() {
         if (!Gst.is_initialized()) {
-            Gst.init(null);
+            Gst.init([]);
         }
     }
 
