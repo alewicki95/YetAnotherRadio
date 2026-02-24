@@ -32,6 +32,12 @@
       <summary>Show playing notification</summary>
       <description>Show an on-screen notification when starting radio playback</description>
     </key>
+
+    <key name="enable-mpris" type="b">
+      <default>true</default>
+      <summary>Enable MPRIS integration</summary>
+      <description>Expose the player over D-Bus via the MPRIS2 protocol</description>
+    </key>
     
     <key name="volume" type="i">
       <default>100</default>

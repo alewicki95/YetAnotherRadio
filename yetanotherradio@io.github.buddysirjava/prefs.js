@@ -744,6 +744,22 @@ const GeneralSettingsPage = GObject.registerClass(
             autoPlayRow.add_suffix(autoPlaySwitch);
             generalGroup.add(autoPlayRow);
 
+            const mprisRow = new Adw.ActionRow({
+                title: _('MPRIS Integration'),
+                subtitle: _('Expose the player over D-Bus so media keys and system controls work'),
+            });
+            mprisRow.set_activatable(false);
+
+            const mprisSwitch = new Gtk.Switch({
+                active: this._settings.get_boolean('enable-mpris'),
+                valign: 3,
+            });
+            mprisSwitch.connect('notify::active', (sw) => {
+                this._settings.set_boolean('enable-mpris', sw.active);
+            });
+            mprisRow.add_suffix(mprisSwitch);
+            generalGroup.add(mprisRow);
+
             const importExportGroup = new Adw.PreferencesGroup({
                 title: _('Import / Export'),
                 description: _('Backup or restore your station list.'),

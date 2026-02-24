@@ -195,11 +195,31 @@ export default class YetAnotherRadioExtension extends Extension {
         this._settings = this.getSettings();
         this._indicator = new Indicator([], () => this.openPreferences(), this.path, this._settings);
 
-        try {
-            this._mpris = new MprisInterface(this._indicator._playbackManager, this._settings);
-        } catch (error) {
-            console.warn('Failed to initialize MPRIS interface:', error);
+        if (this._settings.get_boolean('enable-mpris')) {
+            try {
+                this._mpris = new MprisInterface(this._indicator._playbackManager, this._settings);
+            } catch (error) {
+                console.warn('Failed to initialize MPRIS interface:', error);
+            }
         }
+
+        this._mprisSettingId = 0;
+        this._mprisSettingId = this._settings.connect('changed::enable-mpris', () => {
+            if (this._settings.get_boolean('enable-mpris')) {
+                if (!this._mpris) {
+                    try {
+                        this._mpris = new MprisInterface(this._indicator._playbackManager, this._settings);
+                    } catch (error) {
+                        console.warn('Failed to initialize MPRIS interface:', error);
+                    }
+                }
+            } else {
+                if (this._mpris) {
+                    this._mpris.destroy();
+                    this._mpris = null;
+                }
+            }
+        });
 
         Main.panel.addToStatusArea(this.uuid, this._indicator);
 
@@ -235,6 +255,11 @@ export default class YetAnotherRadioExtension extends Extension {
             }
             this._monitor.cancel();
             this._monitor = null;
+        }
+
+        if (this._mprisSettingId) {
+            this._settings.disconnect(this._mprisSettingId);
+            this._mprisSettingId = 0;
         }
 
         if (this._mpris) {
