@@ -2,15 +2,16 @@ import GObject from 'gi://GObject';
 import St from 'gi://St';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Clutter from 'gi://Clutter';
 import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { ensureStorageFile, loadStations, STORAGE_PATH, initTranslations } from './radioUtils.js';
-import { createMetadataItem, updateMetadataDisplay, updatePlaybackStateIcon } from './modules/metadataDisplay.js';
+import { createMetadataItem, updateCopyButton, updateMetadataDisplay, updatePlaybackStateIcon } from './modules/metadataDisplay.js';
 import { createVolumeItem, onVolumeChanged } from './modules/volumeControl.js';
-import { createScrollableSection, createStationMenuItem, refreshStationsMenu } from './modules/stationMenu.js';
+import { createStationMenuItem } from './modules/stationMenu.js';
 import PlaybackManager from './modules/playbackManager.js';
 import MprisInterface from './modules/mprisInterface.js';
 
@@ -26,22 +27,54 @@ const Indicator = GObject.registerClass(
             this._refreshIdleId = 0;
 
             const iconPath = `${extensionPath}/icons/yetanotherradio.svg`;
-            const iconFile = Gio.File.new_for_path(iconPath);
-            const icon = new Gio.FileIcon({ file: iconFile });
+            const playingIconPath = `${extensionPath}/icons/playing.svg`;
+            this._defaultIcon = new Gio.FileIcon({ file: Gio.File.new_for_path(iconPath) });
+            this._playingIcon = new Gio.FileIcon({ file: Gio.File.new_for_path(playingIconPath) });
 
             this._playbackManager = new PlaybackManager(this._settings, {
                 onStateChanged: (state) => this._onStateChanged(state),
                 onStationChanged: (station) => this._onStationChanged(station),
                 onMetadataUpdate: () => this._updateMetadataDisplay(),
                 onVisibilityChanged: (visible) => this._updateVisibility(visible)
-            }, icon);
+            }, this._defaultIcon);
 
-            this.add_child(new St.Icon({
-                gicon: icon,
+            this._panelIcon = new St.Icon({
+                gicon: this._defaultIcon,
                 style_class: 'system-status-icon',
-            }));
+            });
+            this.add_child(this._panelIcon);
 
-            this.menu.actor.add_style_class_name('yetanotherradio-menu');
+
+            // Middle click: pause/resume current playback, or resume last station when stopped.
+            this.connect('captured-event', (_actor, event) => {
+                try {
+                    const type = event?.type?.();
+                    const isButtonEvent = type === Clutter.EventType.BUTTON_PRESS || type === Clutter.EventType.BUTTON_RELEASE;
+                    if (!isButtonEvent || event?.get_button?.() !== 2)
+                        return Clutter.EVENT_PROPAGATE;
+
+                    // Block PanelMenu's default middle-click handling.
+                    if (type === Clutter.EventType.BUTTON_PRESS)
+                        return Clutter.EVENT_STOP;
+
+                    const state = this._playbackManager?.playbackState;
+                    if (state === 'playing' || state === 'paused') {
+                        this._togglePlayback();
+                    } else {
+                        const station = this._getLastPlayedStation();
+                        if (station)
+                            this._playStation(station);
+                        else
+                            Main.notify(_('Yet Another Radio'), _('No station played yet.'));
+                    }
+
+                    this.menu?.close?.();
+                    return Clutter.EVENT_STOP;
+                } catch (e) {
+                    console.debug('Middle click handler failed:', e);
+                    return Clutter.EVENT_PROPAGATE;
+                }
+            });
 
             this._metadataItem = createMetadataItem(
                 () => this._togglePlayback(),
@@ -57,19 +90,27 @@ const Indicator = GObject.registerClass(
 
             this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
-            this._favoritesSection = new PopupMenu.PopupMenuSection();
-            this._favoritesSection.visible = false;
-            this.menu.addMenuItem(this._favoritesSection);
+            if (PopupMenu.PopupMenuScrollSection) {
+                this._stationSection = new PopupMenu.PopupMenuScrollSection();
+                this._stationSection.actor.add_style_class_name('yetanotherradio-scroll-view');
+                this.menu.addMenuItem(this._stationSection);
+            } else {
+                this._stationSection = new PopupMenu.PopupMenuSection();
+                const scrollWrapper = new PopupMenu.PopupMenuSection();
 
-            this._favSeparator = new PopupMenu.PopupSeparatorMenuItem();
-            this.menu.addMenuItem(this._favSeparator);
+                this._stationScrollView = new St.ScrollView({
+                    style_class: 'yetanotherradio-scroll-view',
+                    hscrollbar_policy: St.PolicyType.NEVER,
+                    vscrollbar_policy: St.PolicyType.AUTOMATIC,
+                    overlay_scrollbars: true,
+                });
+                this._stationScrollView.set_x_expand(true);
+                this._stationScrollView.set_y_expand(true);
+                this._stationScrollView.set_child(this._stationSection.actor);
 
-            this._stationSection = new PopupMenu.PopupMenuSection();
-            this.menu.addMenuItem(this._stationSection);
-
-            this._scrollableSection = createScrollableSection();
-            this._scrollableSection.visible = false;
-            this.menu.addMenuItem(this._scrollableSection);
+                scrollWrapper.actor.add_child(this._stationScrollView);
+                this.menu.addMenuItem(scrollWrapper);
+            }
 
             this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
 
@@ -87,6 +128,13 @@ const Indicator = GObject.registerClass(
 
         _onStateChanged(state) {
             updatePlaybackStateIcon(this._metadataItem, state);
+
+            if (!this._panelIcon)
+                return;
+
+            this._panelIcon.gicon = state === 'playing'
+                ? this._playingIcon
+                : this._defaultIcon;
         }
 
         _onStationChanged(station) {
@@ -96,7 +144,7 @@ const Indicator = GObject.registerClass(
             this._refreshIdleId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
                 this._refreshIdleId = 0;
 
-                if (!this._stationSection || !this.menu)
+                if (!this.menu)
                     return GLib.SOURCE_REMOVE;
 
                 this._refreshStationsMenu();
@@ -107,6 +155,9 @@ const Indicator = GObject.registerClass(
         _updateVisibility(visible) {
             this._metadataItem.visible = visible;
             this._volumeItem.visible = visible;
+
+            if (!visible)
+                updateCopyButton(this._metadataItem, null);
         }
 
         _onVolumeChanged() {
@@ -121,6 +172,8 @@ const Indicator = GObject.registerClass(
                 this._playbackManager.nowPlaying,
                 this._playbackManager.currentMetadata
             );
+
+            updateCopyButton(this._metadataItem, this._playbackManager.currentMetadata);
         }
 
         setStations(stations) {
@@ -130,28 +183,37 @@ const Indicator = GObject.registerClass(
         }
 
         _refreshStationsMenu() {
-            refreshStationsMenu(
-                this._stations,
-                this._favoritesSection,
-                this._stationSection,
-                this._scrollableSection,
-                this._hintItem,
-                (station, isNowPlaying) => this._createStationMenuItem(station, isNowPlaying),
-                this._playbackManager.nowPlaying
-            );
+            if (this._stationSection?.removeAll)
+                this._stationSection.removeAll();
 
-            const favorites = this._stations.filter(s => s.favorite);
+            if (!this._stations || !this._stations.length) {
+                this._hintItem.visible = true;
+                return;
+            }
+
+            this._hintItem.visible = false;
+
+            const favorites = this._stations.filter(s => s.favorite).sort((a, b) =>
+                (a.name || a.url).localeCompare(b.name || b.url)
+            );
             const regular = this._stations.filter(s => !s.favorite);
 
-            if (this._stations.length <= 6) {
-                if (favorites.length > 0) {
-                    this._favSeparator.visible = regular.length > 0;
-                } else {
-                    this._favSeparator.visible = false;
-                }
-            } else {
-                this._favSeparator.visible = false;
-            }
+            const isNowPlayingStation = (station) => {
+                if (!this._playbackManager.nowPlaying) return false;
+                if (this._playbackManager.nowPlaying.uuid && station.uuid)
+                    return station.uuid === this._playbackManager.nowPlaying.uuid;
+                return (station.name || station.url) === (this._playbackManager.nowPlaying.name || this._playbackManager.nowPlaying.url);
+            };
+
+            const addStation = (station) => {
+                const item = this._createStationMenuItem(station, isNowPlayingStation(station));
+                this._stationSection.addMenuItem(item);
+            };
+
+            favorites.forEach(addStation);
+            if (favorites.length > 0 && regular.length > 0)
+                this._stationSection.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+            regular.forEach(addStation);
         }
 
         _createStationMenuItem(station, isNowPlaying = false) {
@@ -178,6 +240,18 @@ const Indicator = GObject.registerClass(
             return [...favorites, ...regulars];
         }
 
+        _getLastPlayedStation() {
+            if (!this._stations?.length)
+                return null;
+
+            const byLastPlayed = this._stations
+                .slice()
+                .filter(s => (s.lastPlayed ?? 0) > 0)
+                .sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0));
+
+            return byLastPlayed[0] ?? this._stations[0] ?? null;
+        }
+
         navigateStation(delta) {
             if (!this._playbackManager.nowPlaying) return;
             const ordered = this._orderedStations();
@@ -198,11 +272,14 @@ const Indicator = GObject.registerClass(
                 this._refreshIdleId = 0;
             }
 
+            this._stationSection = null;
+            this._stationScrollView = null;
+
             this._metadataItem = null;
             this._volumeItem = null;
-            this._favoritesSection = null;
-            this._stationSection = null;
-            this._scrollableSection = null;
+            this._panelIcon = null;
+            this._defaultIcon = null;
+            this._playingIcon = null;
             this._prefsItem = null;
             this._hintItem = null;
 

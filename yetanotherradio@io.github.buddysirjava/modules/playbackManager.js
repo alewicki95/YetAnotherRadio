@@ -24,11 +24,14 @@ export default class PlaybackManager {
         this._busHandlerId = null;
 
         this._metadataTimer = null;
+        this._playTimeTimer = null;
         this._reconnectId = null;
 
         this._nowPlaying = null;
         this._playbackState = 'stopped';
         this._pausedAt = null;
+        this._playStartedAtMs = null;
+        this._elapsedBeforePauseMs = 0;
 
         this._currentMetadata = {
             title: null,
@@ -36,7 +39,8 @@ export default class PlaybackManager {
             albumArt: null,
             bitrate: null,
             nowPlaying: null,
-            playbackState: 'stopped'
+            playbackState: 'stopped',
+            playTimeSeconds: 0
         };
     }
 
@@ -189,6 +193,7 @@ export default class PlaybackManager {
             this._currentMetadata.artist = null;
             this._currentMetadata.albumArt = null;
             this._currentMetadata.bitrate = null;
+            this._currentMetadata.playTimeSeconds = 0;
 
             this._player.set_state(Gst.State.NULL);
             this._player.set_property('uri', station.url);
@@ -202,6 +207,8 @@ export default class PlaybackManager {
 
             this._nowPlaying = station;
             this._playbackState = 'playing';
+            this._playStartedAtMs = Date.now();
+            this._elapsedBeforePauseMs = 0;
 
             this._currentMetadata.nowPlaying = station;
             this._currentMetadata.playbackState = 'playing';
@@ -211,6 +218,7 @@ export default class PlaybackManager {
             this._emit('onVisibilityChanged', true);
 
             this._startMetadataUpdate();
+            this._startPlayTimeUpdate();
             
             this._showPlayingNotification(station);
 
@@ -233,12 +241,12 @@ export default class PlaybackManager {
         const icon = this._osdIcon || Gio.ThemedIcon.new('media-playback-start-symbolic');
 
         if (Main.osdWindowManager) {
-            if (ShellVersion >= 49 && typeof Main.osdWindowManager.showAll === 'function') {
+            if (ShellVersion >= 49 && Main.osdWindowManager.showAll) {
                 Main.osdWindowManager.showAll(icon, message, null, null);
                 return;
             }
 
-            if (typeof Main.osdWindowManager.show === 'function') {
+            if (Main.osdWindowManager.show) {
                 Main.osdWindowManager.show(-1, icon, message, null, null);
                 return;
             }
@@ -254,9 +262,13 @@ export default class PlaybackManager {
             this._player.set_state(Gst.State.PAUSED);
             this._playbackState = 'paused';
             this._pausedAt = Date.now();
+            this._elapsedBeforePauseMs = this._getElapsedPlayMs();
+            this._playStartedAtMs = null;
 
             this._currentMetadata.playbackState = 'paused';
+            this._currentMetadata.playTimeSeconds = Math.floor(this._elapsedBeforePauseMs / 1000);
             this._emit('onStateChanged', 'paused');
+            this._emit('onMetadataUpdate');
 
         } else if (this._playbackState === 'paused') {
             const pauseDuration = this._pausedAt ? Date.now() - this._pausedAt : 0;
@@ -267,9 +279,11 @@ export default class PlaybackManager {
             } else {
                 this._player.set_state(Gst.State.PLAYING);
                 this._playbackState = 'playing';
+                this._playStartedAtMs = Date.now();
                 this._currentMetadata.playbackState = 'playing';
 
                 this._emit('onStateChanged', 'playing');
+                this._emit('onMetadataUpdate');
             }
             this._pausedAt = null;
         }
@@ -283,6 +297,8 @@ export default class PlaybackManager {
         this._nowPlaying = null;
         this._playbackState = 'stopped';
         this._pausedAt = null;
+        this._playStartedAtMs = null;
+        this._elapsedBeforePauseMs = 0;
 
         this._currentMetadata.nowPlaying = null;
         this._currentMetadata.playbackState = 'stopped';
@@ -290,8 +306,10 @@ export default class PlaybackManager {
         this._currentMetadata.artist = null;
         this._currentMetadata.albumArt = null;
         this._currentMetadata.bitrate = null;
+        this._currentMetadata.playTimeSeconds = 0;
 
         this._stopMetadataUpdate();
+        this._stopPlayTimeUpdate();
 
         this._emit('onStateChanged', 'stopped');
         this._emit('onStationChanged', null);
@@ -325,6 +343,37 @@ export default class PlaybackManager {
         }
     }
 
+    _getElapsedPlayMs() {
+        if (this._playbackState === 'playing' && this._playStartedAtMs) {
+            return this._elapsedBeforePauseMs + Math.max(0, Date.now() - this._playStartedAtMs);
+        }
+
+        return this._elapsedBeforePauseMs;
+    }
+
+    _startPlayTimeUpdate() {
+        this._stopPlayTimeUpdate();
+        this._playTimeTimer = GLib.timeout_add_seconds(
+            GLib.PRIORITY_DEFAULT,
+            1,
+            () => {
+                if (this._playbackState !== 'playing')
+                    return true;
+
+                this._currentMetadata.playTimeSeconds = Math.floor(this._getElapsedPlayMs() / 1000);
+                this._emit('onMetadataUpdate');
+                return true;
+            }
+        );
+    }
+
+    _stopPlayTimeUpdate() {
+        if (this._playTimeTimer) {
+            GLib.source_remove(this._playTimeTimer);
+            this._playTimeTimer = null;
+        }
+    }
+
     _updateStationHistory(station) {
         loadStations().then(stations => {
             const stationIndex = stations.findIndex(s => s.uuid === station.uuid);
@@ -343,6 +392,11 @@ export default class PlaybackManager {
         if (this._metadataTimer) {
             GLib.source_remove(this._metadataTimer);
             this._metadataTimer = null;
+        }
+
+        if (this._playTimeTimer) {
+            GLib.source_remove(this._playTimeTimer);
+            this._playTimeTimer = null;
         }
 
         if (this._reconnectId) {

@@ -36,6 +36,15 @@
     font-size: 0.85em;
 }
 
+.metadata-time {
+    font-size: 0.9em;
+    font-weight: 600;
+}
+
+.metadata-info-box {
+    spacing: 1px;
+}
+
 preferencespage preferencesgroup button {
     margin-top: 12px;
 }
@@ -58,45 +67,18 @@ preferencespage preferencesgroup actionrow {
     cursor: default;
 }
 
-preferencespage preferencesgroup actionrow:hover {
-    background: transparent;
-}
-
-.yetanotherradio-menu {
-    max-width: 320px;
-}
-
-.yetanotherradio-menu .popup-menu-item {
-    max-width: 300px;
-}
-.yetanotherradio-menu .metadata-item-box {
-    max-width: 300px;
-}
-
-.yetanotherradio-menu .popup-menu-item StLabel {
-    max-width: 180px !important;
-    width: auto !important;
+.popup-menu-item.yetanotherradio-current-station {
+    opacity: 0.5;
 }
 
 .yetanotherradio-scroll-view {
-    max-height: 300px;
-    padding: 0;
+    max-height: 20em;
 }
 
-.yetanotherradio-scroll-view .popup-menu-item {
-    color: white;
+.yetanotherradio-station-label {
+    max-width: 18em;
 }
 
-.yetanotherradio-scroll-view .popup-menu-item StLabel {
-    color: white;
-    max-width: 180px !important;
-    width: auto !important;
-}
-
-.yetanotherradio-menu .popup-menu-item.yetanotherradio-current-station StLabel {
-    font-style: italic;
-    color: rgba(200, 200, 200, 0.9);
-}
 
 .metadata-controls-box {
     spacing: 6px;
@@ -108,15 +90,6 @@ preferencespage preferencesgroup actionrow:hover {
     min-height: 32px;
     padding: 6px;
     border-radius: 99px;
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-.metadata-button:hover {
-    background-color: rgba(255, 255, 255, 0.2);
-}
-
-.metadata-button:active {
-    background-color: rgba(255, 255, 255, 0.3);
 }
 
 .metadata-thumbnail-container {
@@ -135,17 +108,29 @@ preferencespage preferencesgroup actionrow:hover {
     padding: 4px;
     border-radius: 99px;
     margin: 0 2px;
-    background-color: transparent;
-}
-
-.metadata-overlay-button:hover {
-    background-color: rgba(255, 255, 255, 0.2);
-}
-
-.metadata-overlay-button:active {
-    background-color: rgba(255, 255, 255, 0.3);
 }
 
 .metadata-overlay-icon {
     icon-size: 16px;
 }
+
+.metadata-copy-button {
+    min-width: 20px;
+    min-height: 20px;
+    padding: 0;
+    margin-left: 6px;
+    border: none;
+    border-radius: 0;
+}
+
+.metadata-copy-button:hover,
+.metadata-copy-button:active,
+.metadata-copy-button:focus {
+    box-shadow: none;
+}
+
+.popup-menu-item.yetanotherradio-metadata-item {
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
