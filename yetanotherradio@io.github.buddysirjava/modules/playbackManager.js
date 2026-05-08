@@ -101,9 +101,9 @@ export default class PlaybackManager {
 
         this._initGst();
 
-        this._player = Gst.ElementFactory.make('playbin', 'radio-player');
+        this._player = Gst.ElementFactory.make('playbin3', 'radio-player');
         if (!this._player) {
-            throw new Error('GStreamer playbin plugin missing');
+            throw new Error('GStreamer playbin3 plugin missing');
         }
 
         const volume = (this._settings.get_int('volume') ?? 100) / 100.0;
@@ -111,6 +111,16 @@ export default class PlaybackManager {
 
         const fakeVideoSink = Gst.ElementFactory.make('fakesink', 'fake-video-sink');
         this._player.set_property('video-sink', fakeVideoSink);
+
+        const audioSink = Gst.ElementFactory.make('pulsesink', 'audio-sink');
+        if (audioSink) {
+            audioSink.set_property('buffer-time', 1000000);
+            audioSink.set_property('latency-time', 50000);
+            this._player.set_property('audio-sink', audioSink);
+        }
+
+        this._player.set_property('buffer-size', 5242880);
+        this._player.set_property('use-buffering', true);
 
         this._bus = this._player.get_bus();
         this._bus.add_signal_watch();
