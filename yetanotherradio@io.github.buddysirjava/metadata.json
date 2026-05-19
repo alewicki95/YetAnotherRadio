@@ -12,5 +12,9 @@
     ],
     "url": "https://github.com/BuddySirJava/YetAnotherRadio",
     "gettext-domain": "yetanotherradio@io.github.buddysirjava",
-    "settings-schema": "org.gnome.shell.extensions.yetanotherradio"
+    "settings-schema": "org.gnome.shell.extensions.yetanotherradio",
+    "session-modes": [
+        "user",
+        "unlock-dialog"
+    ]
 }
