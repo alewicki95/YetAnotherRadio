@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Yet Another Radio\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-12-17 09:34+0100\n"
+"POT-Creation-Date: 2026-05-24 20:11+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,15 +17,20 @@ msgstr ""
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: yetanotherradio@io.github.buddysirjava/extension.js:20
+#: yetanotherradio@io.github.buddysirjava/extension.js:21
+#: yetanotherradio@io.github.buddysirjava/extension.js:68
 msgid "Yet Another Radio"
 msgstr ""
 
-#: yetanotherradio@io.github.buddysirjava/extension.js:75
+#: yetanotherradio@io.github.buddysirjava/extension.js:68
+msgid "No station played yet."
+msgstr ""
+
+#: yetanotherradio@io.github.buddysirjava/extension.js:117
 msgid "Open preferences"
 msgstr ""
 
-#: yetanotherradio@io.github.buddysirjava/extension.js:79
+#: yetanotherradio@io.github.buddysirjava/extension.js:121
 msgid "Use preferences to add stations."
 msgstr ""
 
@@ -172,27 +177,27 @@ msgid "Configure general extension behavior."
 msgstr ""
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:716
-msgid "Enable Media Keys"
-msgstr ""
-
-#: yetanotherradio@io.github.buddysirjava/prefs.js:717
-msgid "Use keyboard media keys (Play/Pause, Stop) to control playback"
-msgstr ""
-
-#: yetanotherradio@io.github.buddysirjava/prefs.js:732
 msgid "Show Playing Notification"
 msgstr ""
 
-#: yetanotherradio@io.github.buddysirjava/prefs.js:733
+#: yetanotherradio@io.github.buddysirjava/prefs.js:717
 msgid "Show an on-screen notification when starting playback"
 msgstr ""
 
-#: yetanotherradio@io.github.buddysirjava/prefs.js:748
+#: yetanotherradio@io.github.buddysirjava/prefs.js:732
 msgid "Auto-play Last Station"
 msgstr ""
 
-#: yetanotherradio@io.github.buddysirjava/prefs.js:749
+#: yetanotherradio@io.github.buddysirjava/prefs.js:733
 msgid "Automatically play the last played station when extension is enabled"
+msgstr ""
+
+#: yetanotherradio@io.github.buddysirjava/prefs.js:748
+msgid "MPRIS Integration"
+msgstr ""
+
+#: yetanotherradio@io.github.buddysirjava/prefs.js:749
+msgid "Expose the player over D-Bus so media keys and system controls work"
 msgstr ""
 
 #: yetanotherradio@io.github.buddysirjava/prefs.js:764
@@ -302,30 +307,34 @@ msgstr ""
 msgid "Invalid response from server."
 msgstr ""
 
-#: yetanotherradio@io.github.buddysirjava/modules/metadataDisplay.js:246
+#: yetanotherradio@io.github.buddysirjava/modules/metadataDisplay.js:84
+msgid "Copied to clipboard"
+msgstr ""
+
+#: yetanotherradio@io.github.buddysirjava/modules/metadataDisplay.js:87
+msgid "Track info"
+msgstr ""
+
+#: yetanotherradio@io.github.buddysirjava/modules/metadataDisplay.js:383
 msgid "Unknown title"
 msgstr ""
 
-#: yetanotherradio@io.github.buddysirjava/modules/metadataDisplay.js:247
+#: yetanotherradio@io.github.buddysirjava/modules/metadataDisplay.js:385
 msgid "Unknown artist"
 msgstr ""
 
-#: yetanotherradio@io.github.buddysirjava/modules/playbackManager.js:99
+#: yetanotherradio@io.github.buddysirjava/modules/playbackManager.js:150
 msgid "Could not play the selected station."
 msgstr ""
 
-#: yetanotherradio@io.github.buddysirjava/modules/playbackManager.js:128
-#: yetanotherradio@io.github.buddysirjava/modules/playbackManager.js:173
+#: yetanotherradio@io.github.buddysirjava/modules/playbackManager.js:179
+#: yetanotherradio@io.github.buddysirjava/modules/playbackManager.js:228
 msgid "Playback error"
 msgstr ""
 
-#: yetanotherradio@io.github.buddysirjava/modules/playbackManager.js:184
+#: yetanotherradio@io.github.buddysirjava/modules/playbackManager.js:239
 #, javascript-format
 msgid "Playing %s"
-msgstr ""
-
-#: yetanotherradio@io.github.buddysirjava/modules/stationMenu.js:100
-msgid "No saved stations yet. Use preferences to add some."
 msgstr ""
 
 #: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:6
@@ -361,27 +370,26 @@ msgid ""
 "Automatically play the last played station when the extension is enabled"
 msgstr ""
 
-#: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:33
-msgid "Enable media keys"
-msgstr ""
-
-#: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:34
-msgid ""
-"Enable global keyboard media keys (Play/Pause, Stop) to control playback"
-msgstr ""
-
-#: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:39
+#: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:32
 msgid "Show playing notification"
 msgstr ""
 
-#: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:40
+#: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:33
 msgid "Show an on-screen notification when starting radio playback"
 msgstr ""
 
-#: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:45
+#: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:38
+msgid "Enable MPRIS integration"
+msgstr ""
+
+#: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:39
+msgid "Expose the player over D-Bus via the MPRIS2 protocol"
+msgstr ""
+
+#: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:44
 msgid "Volume"
 msgstr ""
 
-#: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:46
+#: yetanotherradio@io.github.buddysirjava/schemas/org.gnome.shell.extensions.yetanotherradio.gschema.xml:45
 msgid "Playback volume (0-100)"
 msgstr ""
