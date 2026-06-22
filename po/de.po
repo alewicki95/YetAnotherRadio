@@ -484,3 +484,9 @@ msgstr "Wiedergabelautstärke (0–100)"
 
 #~ msgid "Failed to save station."
 #~ msgstr "Speichern des Senders fehlgeschlagen."
+
+msgid "MPRIS Integration"
+msgstr "Mediatasten akzeptieren"
+
+msgid "Expose the player over D-Bus so media keys and system controls work"
+msgstr "Dem Player Medientasten und Systemsteuerungen erlauben."
