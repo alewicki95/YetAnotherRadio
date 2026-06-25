@@ -10,7 +10,7 @@ xgettext --from-code=UTF-8 \
   yetanotherradio@io.github.buddysirjava/modules/*.js \
   yetanotherradio@io.github.buddysirjava/schemas/*.xml
 
-
-
-
-
+for po_file in po/*.po; do
+  [ -f "$po_file" ] || continue
+  msgmerge --update --no-fuzzy-matching "$po_file" po/yetanotherradio.pot
+done

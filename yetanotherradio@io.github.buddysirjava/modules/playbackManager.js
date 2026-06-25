@@ -11,6 +11,14 @@ import { loadStations, saveStations, stationDisplayName } from '../radioUtils.js
 import { parseMetadataTags, queryPlayerTags } from './metadataDisplay.js';
 
 const ShellVersion = parseFloat(Config.PACKAGE_VERSION);
+const GST_PLAY_FLAG_BUFFERING = Gst.PlayFlags?.BUFFERING ?? (1 << 8);
+
+function _isIgnorableLiveStreamError(errorMessage, debugInfo) {
+    const text = `${errorMessage || ''} ${debugInfo || ''}`.toLowerCase();
+    return text.includes('does not support seeking') ||
+        text.includes('does not accept range') ||
+        text.includes('range http');
+}
 
 export default class PlaybackManager {
     constructor(settings, callbacks, osdIcon = null) {
@@ -23,9 +31,18 @@ export default class PlaybackManager {
         this._bus = null;
         this._busHandlerId = null;
 
+        this._audioSinkBin = null;
+        this._audioTee = null;
+        this._recordTeePad = null;
+        this._recordQueue = null;
+        this._recordValve = null;
+        this._recordFilesink = null;
+        this._recordEncoder = null;
+
+        this._recordRotateTimeoutId = null;
+
         this._metadataTimer = null;
         this._playTimeTimer = null;
-        this._reconnectId = null;
 
         this._nowPlaying = null;
         this._playbackState = 'stopped';
@@ -112,6 +129,182 @@ export default class PlaybackManager {
         return metadata;
     }
 
+    _createAudioSinkBin() {
+        const bin = Gst.Bin.new('audio-sink-bin');
+        const tee = Gst.ElementFactory.make('tee', 'audio-tee');
+        const playQueue = Gst.ElementFactory.make('queue', 'play-queue');
+        const pulseSink = Gst.ElementFactory.make('pulsesink', 'pulse-sink');
+
+        if (!tee || !playQueue || !pulseSink)
+            throw new Error(_('GStreamer audio sink plugins missing'));
+
+        pulseSink.set_property('buffer-time', 1000000);
+        pulseSink.set_property('latency-time', 50000);
+
+        bin.add(tee);
+        bin.add(playQueue);
+        bin.add(pulseSink);
+
+        playQueue.link(pulseSink);
+
+        const teePlayPad = tee.request_pad_simple('src_%u');
+        if (teePlayPad.link(playQueue.get_static_pad('sink')) !== Gst.PadLinkReturn.OK)
+            throw new Error(_('Failed to link playback branch'));
+
+        const ghost = Gst.GhostPad.new('sink', tee.get_static_pad('sink'));
+        bin.add_pad(ghost);
+
+        this._audioSinkBin = bin;
+        this._audioTee = tee;
+
+        return bin;
+    }
+
+    _hasRecordingBranch() {
+        return Boolean(this._recordFilesink);
+    }
+
+    _attachRecordingBranch(path) {
+        if (this._hasRecordingBranch())
+            return true;
+
+        if (!this._audioSinkBin || !this._audioTee || !path)
+            return false;
+
+        const recordQueue = Gst.ElementFactory.make('queue', 'record-queue');
+        const recordValve = Gst.ElementFactory.make('valve', 'record-valve');
+        const recordEncoder = Gst.ElementFactory.make('lamemp3enc', 'record-encoder');
+        const recordFilesink = Gst.ElementFactory.make('filesink', 'record-filesink');
+
+        if (!recordQueue || !recordValve || !recordEncoder || !recordFilesink)
+            throw new Error(_('GStreamer recording plugins missing'));
+
+        recordQueue.set_property('max-size-time', 10 * Gst.SECOND);
+        recordQueue.set_property('max-size-buffers', 0);
+        recordQueue.set_property('max-size-bytes', 0);
+        recordEncoder.set_property('target', 0);
+        recordEncoder.set_property('quality', 0);
+        recordValve.set_property('drop', true);
+        recordFilesink.set_property('sync', false);
+        recordFilesink.set_property('async', false);
+        recordFilesink.set_property('location', path);
+
+        this._audioSinkBin.add(recordQueue);
+        this._audioSinkBin.add(recordValve);
+        this._audioSinkBin.add(recordEncoder);
+        this._audioSinkBin.add(recordFilesink);
+
+        recordQueue.link(recordValve);
+        recordValve.link(recordEncoder);
+        recordEncoder.link(recordFilesink);
+
+        const teeRecordPad = this._audioTee.request_pad_simple('src_%u');
+        if (teeRecordPad.link(recordQueue.get_static_pad('sink')) !== Gst.PadLinkReturn.OK)
+            throw new Error(_('Failed to link recording branch'));
+
+        for (const element of [recordQueue, recordValve, recordEncoder, recordFilesink])
+            element.sync_state_with_parent();
+
+        this._recordTeePad = teeRecordPad;
+        this._recordQueue = recordQueue;
+        this._recordValve = recordValve;
+        this._recordEncoder = recordEncoder;
+        this._recordFilesink = recordFilesink;
+
+        return true;
+    }
+
+    _detachRecordingBranch() {
+        if (!this._hasRecordingBranch())
+            return;
+
+        if (this._recordValve)
+            this._recordValve.set_property('drop', true);
+
+        const elements = [
+            this._recordFilesink,
+            this._recordEncoder,
+            this._recordValve,
+            this._recordQueue,
+        ].filter(Boolean);
+
+        for (const element of elements)
+            element.set_state(Gst.State.NULL);
+
+        if (this._recordTeePad && this._audioTee)
+            this._audioTee.release_request_pad(this._recordTeePad);
+
+        for (const element of elements)
+            this._audioSinkBin.remove(element);
+
+        this._recordTeePad = null;
+        this._recordQueue = null;
+        this._recordValve = null;
+        this._recordEncoder = null;
+        this._recordFilesink = null;
+    }
+
+    setRecordingOutputPath(path) {
+        if (!path)
+            return false;
+
+        if (!this._hasRecordingBranch())
+            return this._attachRecordingBranch(path);
+
+        this._recordFilesink.set_property('location', path);
+        return true;
+    }
+
+    setRecordingActive(active) {
+        if (!this._recordValve)
+            return false;
+
+        this._recordValve.set_property('drop', !active);
+        return true;
+    }
+
+    rotateRecordingOutputPath(path, callback = null) {
+        if (!this._recordValve || !this._recordFilesink || !path)
+            return false;
+
+        if (this._recordRotateTimeoutId) {
+            GLib.source_remove(this._recordRotateTimeoutId);
+            this._recordRotateTimeoutId = null;
+        }
+
+        this._recordValve.set_property('drop', true);
+
+        this._recordRotateTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+            this._recordRotateTimeoutId = null;
+
+            try {
+                if (!this._recordFilesink)
+                    throw new Error(_('Recording branch unavailable'));
+
+                this._recordFilesink.set_state(Gst.State.NULL);
+                this._recordFilesink.set_property('location', path);
+                this._recordFilesink.sync_state_with_parent();
+                callback?.(null);
+            } catch (error) {
+                logError(error, 'Failed to rotate recording output');
+                callback?.(error);
+            }
+
+            return GLib.SOURCE_REMOVE;
+        });
+
+        return true;
+    }
+
+    stopRecordingBranch() {
+        if (this._recordRotateTimeoutId) {
+            GLib.source_remove(this._recordRotateTimeoutId);
+            this._recordRotateTimeoutId = null;
+        }
+
+        this._detachRecordingBranch();
+    }
+
     _ensurePlayer() {
         if (this._player) return;
 
@@ -128,37 +321,40 @@ export default class PlaybackManager {
         const fakeVideoSink = Gst.ElementFactory.make('fakesink', 'fake-video-sink');
         this._player.set_property('video-sink', fakeVideoSink);
 
-        const audioSink = Gst.ElementFactory.make('pulsesink', 'audio-sink');
-        if (audioSink) {
-            audioSink.set_property('buffer-time', 1000000);
-            audioSink.set_property('latency-time', 50000);
-            this._player.set_property('audio-sink', audioSink);
-        }
+        this._player.set_property('audio-sink', this._createAudioSinkBin());
 
-        this._player.set_property('buffer-size', 5242880);
+        const flags = this._player.get_property('flags');
+        this._player.set_property('flags', flags & ~GST_PLAY_FLAG_BUFFERING);
 
         this._bus = this._player.get_bus();
         this._bus.add_signal_watch();
         this._busHandlerId = this._bus.connect('message', (b, message) => this._handleBusMessage(message));
     }
 
+    _applyMetadataUpdate(metadata) {
+        if (!metadata)
+            return;
+
+        if (metadata.title)
+            this._currentMetadata.title = metadata.title;
+        if (metadata.artist)
+            this._currentMetadata.artist = metadata.artist;
+        if (metadata.albumArt)
+            this._currentMetadata.albumArt = metadata.albumArt;
+        if (metadata.bitrate)
+            this._currentMetadata.bitrate = metadata.bitrate;
+
+        this._emit('onMetadataUpdate');
+    }
+
     _handleBusMessage(message) {
         if (message.type === Gst.MessageType.TAG) {
             const tagList = message.parse_tag();
             const metadata = parseMetadataTags(tagList);
-            if (metadata) {
-                if (metadata.title) this._currentMetadata.title = metadata.title;
-                if (metadata.artist) this._currentMetadata.artist = metadata.artist;
-                if (metadata.albumArt) this._currentMetadata.albumArt = metadata.albumArt;
-                if (metadata.bitrate) this._currentMetadata.bitrate = metadata.bitrate;
-
-                this._emit('onMetadataUpdate');
-            }
+            if (metadata)
+                this._applyMetadataUpdate(metadata);
         } else if (message.type === Gst.MessageType.ERROR) {
             const [error, debug] = message.parse_error();
-            console.error(error, debug);
-
-            let errorBody = _('Could not play the selected station.');
             let errorMessage = '';
             if (error) {
                 if (error.message) errorMessage = String(error.message);
@@ -167,29 +363,19 @@ export default class PlaybackManager {
                 errorMessage = String(debug);
             }
 
-            if (errorMessage) errorBody = errorMessage;
-
-            if (errorMessage &&
-                (errorMessage.includes('seeking') || errorMessage.includes('seek')) &&
-                this._nowPlaying &&
-                this._playbackState === 'playing') {
-
-                console.debug('Seeking error detected, reconnecting to stream...');
-                const station = this._nowPlaying;
-
-                if (this._reconnectId) {
-                    GLib.source_remove(this._reconnectId);
-                }
-
-                this._reconnectId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
-                    this.play(station);
-                    this._reconnectId = null;
-                    return false;
-                });
-            } else {
-                Main.notifyError(_('Playback error'), GLib.markup_escape_text(errorBody, -1));
-                this.stop();
+            if (_isIgnorableLiveStreamError(errorMessage, debug)) {
+                console.debug('Ignoring non-fatal live stream error:', errorMessage);
+                return;
             }
+
+            console.error(error, debug);
+
+            let errorBody = _('Could not play the selected station.');
+            if (errorMessage)
+                errorBody = errorMessage;
+
+            Main.notifyError(_('Playback error'), GLib.markup_escape_text(errorBody, -1));
+            this.stop();
 
         } else if (message.type === Gst.MessageType.EOS) {
             this.stop();
@@ -282,21 +468,10 @@ export default class PlaybackManager {
             this._emit('onMetadataUpdate');
 
         } else if (this._playbackState === 'paused') {
-            const pauseDuration = this._pausedAt ? Date.now() - this._pausedAt : 0;
-            const RECONNECT_THRESHOLD = 5000;
-
-            if (pauseDuration > RECONNECT_THRESHOLD && this._nowPlaying) {
-                this.play(this._nowPlaying);
-            } else {
-                this._player.set_state(Gst.State.PLAYING);
-                this._playbackState = 'playing';
-                this._playStartedAtMs = Date.now();
-                this._currentMetadata.playbackState = 'playing';
-
-                this._emit('onStateChanged', 'playing');
-                this._emit('onMetadataUpdate');
-            }
             this._pausedAt = null;
+
+            if (this._nowPlaying)
+                this.play(this._nowPlaying);
         }
     }
 
@@ -397,6 +572,7 @@ export default class PlaybackManager {
     }
 
     destroy() {
+        this.stopRecordingBranch();
         this.stop();
 
         if (this._metadataTimer) {
@@ -407,11 +583,6 @@ export default class PlaybackManager {
         if (this._playTimeTimer) {
             GLib.source_remove(this._playTimeTimer);
             this._playTimeTimer = null;
-        }
-
-        if (this._reconnectId) {
-            GLib.source_remove(this._reconnectId);
-            this._reconnectId = null;
         }
 
         if (this._bus) {

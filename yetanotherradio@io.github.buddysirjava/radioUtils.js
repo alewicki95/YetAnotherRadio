@@ -15,6 +15,51 @@ export const STORAGE_PATH = GLib.build_filenamev([
     'stations.json',
 ]);
 
+export function getDefaultRecordingsDir() {
+    return GLib.build_filenamev([
+        GLib.get_user_state_dir(),
+        'yetanotherradio',
+        'recordings',
+    ]);
+}
+
+export function getCustomRecordingsDir(settings = null) {
+    if (!settings)
+        return '';
+
+    try {
+        return settings.get_string('recordings-directory')?.trim() || '';
+    } catch (error) {
+        return '';
+    }
+}
+
+export function connectRecordingsDirChanged(settings, callback) {
+    if (!settings)
+        return 0;
+
+    try {
+        return settings.connect('changed::recordings-directory', callback);
+    } catch (error) {
+        return 0;
+    }
+}
+
+export function getRecordingsDir(settings = null) {
+    const customDir = getCustomRecordingsDir(settings);
+    if (customDir)
+        return customDir;
+    return getDefaultRecordingsDir();
+}
+
+export function getSessionsIndexPath() {
+    return GLib.build_filenamev([
+        GLib.get_user_state_dir(),
+        'yetanotherradio',
+        'recording-sessions.json',
+    ]);
+}
+
 export function ensureStorageFile() {
     try {
         const dir = GLib.path_get_dirname(STORAGE_PATH);
@@ -99,6 +144,435 @@ export function stationDisplayName(station) {
     const base = station?.name?.trim() || station?.url || _('Unnamed station');
     const country = station?.countrycode ? ` (${station.countrycode})` : '';
     return `${base}${country}`;
+}
+
+const RECORDING_AUDIO_EXTENSION_PATTERN = /\.(flac|mp3|ogg|opus|wav|m4a|aac)$/i;
+
+export function sanitizeRecordingFilename(value, fallback = 'track') {
+    const cleaned = String(value ?? '')
+        .trim()
+        .replace(RECORDING_AUDIO_EXTENSION_PATTERN, '')
+        .replace(/[\\/:*?"<>|]/g, '_')
+        .replace(/\s+/g, ' ')
+        .substring(0, 120);
+    return cleaned || fallback;
+}
+
+export function buildRecordingTrackBasename(artist, title, stationName) {
+    const safeArtist = sanitizeRecordingFilename(artist, '');
+    const safeTitle = sanitizeRecordingFilename(title, sanitizeRecordingFilename(stationName, 'track'));
+    if (safeArtist && safeArtist !== safeTitle)
+        return `${safeArtist} - ${safeTitle}`;
+    return safeTitle;
+}
+
+export function buildRecordingTrackFilename(artist, title, stationName, format = 'mp3', usedNames = new Set()) {
+    const basename = buildRecordingTrackBasename(artist, title, stationName);
+    let filename = `${basename}.${format}`;
+    let counter = 2;
+
+    while (usedNames.has(filename.toLowerCase())) {
+        filename = `${basename} (${counter}).${format}`;
+        counter += 1;
+    }
+
+    usedNames.add(filename.toLowerCase());
+    return { basename, filename };
+}
+
+export function getRecordingStationDirName(station) {
+    return sanitizeRecordingFilename(stationDisplayName(station), 'recording');
+}
+
+export function listRecordingTrackFilenames(folderName, settings = null) {
+    const dirPath = getRecordingSessionDir(folderName, settings);
+    const usedNames = new Set();
+
+    if (!GLib.file_test(dirPath, GLib.FileTest.IS_DIR))
+        return usedNames;
+
+    const dir = Gio.File.new_for_path(dirPath);
+    let enumerator;
+    try {
+        enumerator = dir.enumerate_children('standard::name,type', Gio.FileQueryInfoFlags.NONE, null);
+    } catch (error) {
+        return usedNames;
+    }
+
+    let info;
+    while ((info = enumerator.next_file(null))) {
+        if (info.get_file_type() !== Gio.FileType.REGULAR)
+            continue;
+
+        const filename = info.get_name();
+        if (RECORDING_AUDIO_EXTENSION_PATTERN.test(filename))
+            usedNames.add(filename.toLowerCase());
+    }
+
+    return usedNames;
+}
+
+export function ensureRecordingsDir(settings = null) {
+    const recordingsDir = getRecordingsDir(settings);
+
+    try {
+        if (!GLib.file_test(recordingsDir, GLib.FileTest.IS_DIR))
+            GLib.mkdir_with_parents(recordingsDir, 0o755);
+    } catch (error) {
+        logError(error, 'Failed to ensure recordings directory exists');
+        throw new Error(_('Could not create recordings directory. Check file permissions.'));
+    }
+}
+
+export function ensureSessionsIndex() {
+    try {
+        const dir = GLib.path_get_dirname(getSessionsIndexPath());
+        if (!GLib.file_test(dir, GLib.FileTest.IS_DIR))
+            GLib.mkdir_with_parents(dir, 0o755);
+
+        const sessionsIndexPath = getSessionsIndexPath();
+        if (!GLib.file_test(sessionsIndexPath, GLib.FileTest.EXISTS))
+            GLib.file_set_contents(sessionsIndexPath, '[]');
+    } catch (error) {
+        logError(error, 'Failed to ensure recording sessions index exists');
+        throw new Error(_('Could not create recording sessions index. Check file permissions.'));
+    }
+}
+
+function _migrateSessionsIndexFromRecordingsDir(settings = null) {
+    const newPath = getSessionsIndexPath();
+    const oldPath = GLib.build_filenamev([getRecordingsDir(settings), 'sessions.json']);
+
+    if (oldPath === newPath || !GLib.file_test(oldPath, GLib.FileTest.EXISTS))
+        return;
+
+    if (GLib.file_test(newPath, GLib.FileTest.EXISTS)) {
+        try {
+            Gio.File.new_for_path(oldPath).delete(null);
+        } catch (error) {
+            logError(error, 'Failed to remove legacy sessions.json from recordings folder');
+        }
+        return;
+    }
+
+    try {
+        const [, contents] = Gio.File.new_for_path(oldPath).load_contents(null);
+        GLib.file_set_contents(newPath, contents);
+        Gio.File.new_for_path(oldPath).delete(null);
+    } catch (error) {
+        logError(error, 'Failed to migrate recording sessions index');
+    }
+}
+
+export function ensureRecordingSessionDir(sessionId, settings = null) {
+    ensureRecordingsDir(settings);
+    const sessionDir = getRecordingSessionDir(sessionId, settings);
+    if (!GLib.file_test(sessionDir, GLib.FileTest.IS_DIR))
+        GLib.mkdir_with_parents(sessionDir, 0o755);
+    return sessionDir;
+}
+
+export function getRecordingSessionDir(folderName = null, settings = null, session = null) {
+    const baseDir = session?.recordingsDir || getRecordingsDir(settings);
+    const name = session?.folderName || session?.id || folderName;
+    return GLib.build_filenamev([baseDir, name]);
+}
+
+export function getRecordingSessionPath(filename, settings = null, session = null) {
+    return GLib.build_filenamev([getRecordingSessionDir(null, settings, session), filename]);
+}
+
+function _sessionStorageKey(session, settings = null) {
+    const dir = session.recordingsDir || getRecordingsDir(settings);
+    const folder = session.folderName || session.id || '';
+    return `${dir}/${folder}`;
+}
+
+export function loadRecordingSessionsSync(settings = null) {
+    try {
+        ensureSessionsIndex();
+        ensureRecordingsDir(settings);
+        _migrateSessionsIndexFromRecordingsDir(settings);
+    } catch (error) {
+        logError(error, 'Failed to ensure recording sessions index');
+        return [];
+    }
+
+    let indexed = [];
+    try {
+        const file = Gio.File.new_for_path(getSessionsIndexPath());
+        const [, contents] = file.load_contents(null);
+        const text = new TextDecoder().decode(contents);
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed)) {
+            indexed = parsed
+                .filter(session => typeof session === 'object' && session?.id)
+                .map(_sanitizeRecordingSession);
+        }
+    } catch (error) {
+        logError(error, 'Failed to load recording sessions index');
+    }
+
+    return _mergeRecordingSessions(indexed, discoverRecordingSessionsFromDisk(settings), settings);
+}
+
+function _mergeRecordingSessions(indexed, discovered, settings = null) {
+    const byKey = new Map();
+    for (const session of indexed)
+        byKey.set(_sessionStorageKey(session, settings), session);
+
+    for (const session of discovered) {
+        const key = _sessionStorageKey(session, settings);
+        if (!byKey.has(key))
+            byKey.set(key, session);
+    }
+
+    return [...byKey.values()].sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
+}
+
+function _scanRecordingsDirectory(recordingsDir) {
+    const sessions = [];
+    if (!recordingsDir || !GLib.file_test(recordingsDir, GLib.FileTest.IS_DIR))
+        return sessions;
+
+    const dir = Gio.File.new_for_path(recordingsDir);
+    let enumerator;
+    try {
+        enumerator = dir.enumerate_children('standard::name,type', Gio.FileQueryInfoFlags.NONE, null);
+    } catch (error) {
+        logError(error, 'Failed to enumerate recordings directory');
+        return sessions;
+    }
+
+    let info;
+    while ((info = enumerator.next_file(null))) {
+        if (info.get_file_type() !== Gio.FileType.DIRECTORY)
+            continue;
+
+        const sessionId = info.get_name();
+        if (sessionId.startsWith('.'))
+            continue;
+
+        const sessionDir = GLib.build_filenamev([recordingsDir, sessionId]);
+        const tracks = _scanSessionTracks(sessionDir);
+        if (!tracks.length)
+            continue;
+
+        const sessionStat = dir.get_child(sessionId).query_info('time::modified', Gio.FileQueryInfoFlags.NONE, null);
+        const startedAt = (sessionStat?.get_attribute_uint64(Gio.FILE_ATTRIBUTE_TIME_MODIFIED) || 0) * 1000 || Date.now();
+
+        sessions.push(_sanitizeRecordingSession({
+            id: sessionId,
+            folderName: sessionId,
+            stationName: sessionId,
+            recordingsDir,
+            startedAt,
+            endedAt: startedAt,
+            format: tracks[0].filename.split('.').pop() || 'mp3',
+            tracks,
+        }));
+    }
+
+    return sessions;
+}
+
+function _scanSessionTracks(sessionDir) {
+    const tracks = [];
+    const dir = Gio.File.new_for_path(sessionDir);
+    let enumerator;
+    try {
+        enumerator = dir.enumerate_children('standard::name,type', Gio.FileQueryInfoFlags.NONE, null);
+    } catch (error) {
+        return tracks;
+    }
+
+    let info;
+    while ((info = enumerator.next_file(null))) {
+        if (info.get_file_type() !== Gio.FileType.REGULAR)
+            continue;
+
+        const filename = info.get_name();
+        if (!RECORDING_AUDIO_EXTENSION_PATTERN.test(filename))
+            continue;
+
+        const title = filename.replace(/\.[^.]+$/, '');
+        const fileStat = dir.get_child(filename).query_info('time::modified', Gio.FileQueryInfoFlags.NONE, null);
+        const modifiedAt = (fileStat?.get_attribute_uint64(Gio.FILE_ATTRIBUTE_TIME_MODIFIED) || 0) * 1000 || Date.now();
+
+        tracks.push(_sanitizeRecordingTrack({
+            title,
+            artist: '',
+            filename,
+            startedAt: modifiedAt,
+            endedAt: modifiedAt,
+            durationSeconds: 0,
+        }));
+    }
+
+    tracks.sort((a, b) => a.startedAt - b.startedAt);
+    tracks.forEach((track, index) => {
+        track.index = index + 1;
+    });
+    return tracks;
+}
+
+export function discoverRecordingSessionsFromDisk(settings = null) {
+    const dirs = new Set([
+        getRecordingsDir(settings),
+        getDefaultRecordingsDir(),
+    ]);
+
+    const sessions = [];
+    for (const recordingsDir of dirs)
+        sessions.push(..._scanRecordingsDirectory(recordingsDir));
+
+    return _mergeRecordingSessions([], sessions);
+}
+
+export async function loadRecordingSessions(settings = null) {
+    try {
+        ensureSessionsIndex();
+        ensureRecordingsDir(settings);
+        _migrateSessionsIndexFromRecordingsDir(settings);
+    } catch (error) {
+        logError(error, 'Failed to ensure recording sessions index');
+        return [];
+    }
+
+    try {
+        const file = Gio.File.new_for_path(getSessionsIndexPath());
+        const [success, contents] = await new Promise((resolve, reject) => {
+            file.load_contents_async(null, (obj, res) => {
+                try {
+                    resolve(obj.load_contents_finish(res));
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        });
+
+        if (!success)
+            return loadRecordingSessionsSync(settings);
+
+        const text = new TextDecoder().decode(contents);
+        const parsed = JSON.parse(text);
+        if (!Array.isArray(parsed))
+            return [];
+
+        return _mergeRecordingSessions(
+            Array.isArray(parsed)
+                ? parsed.filter(session => typeof session === 'object' && session?.id).map(_sanitizeRecordingSession)
+                : [],
+            discoverRecordingSessionsFromDisk(settings),
+            settings
+        );
+    } catch (error) {
+        logError(error, 'Failed to load recording sessions asynchronously');
+        return loadRecordingSessionsSync(settings);
+    }
+}
+
+export function saveRecordingSessions(sessions, settings = null) {
+    try {
+        ensureSessionsIndex();
+    } catch (error) {
+        logError(error, 'Failed to ensure recording sessions index');
+        throw error;
+    }
+
+    try {
+        const sanitized = sessions
+            .filter(session => session?.id)
+            .map(_sanitizeRecordingSession);
+        const json = JSON.stringify(sanitized, null, 2);
+        GLib.file_set_contents(getSessionsIndexPath(), json);
+        return sanitized;
+    } catch (error) {
+        logError(error, 'Failed to save recording sessions');
+        throw new Error(_('Failed to save recording sessions: %s').format(error.message || _('Unknown error')));
+    }
+}
+
+export async function deleteRecordingSession(sessionId, settings = null) {
+    const sessions = await loadRecordingSessions(settings);
+    const session = sessions.find(entry => entry.id === sessionId);
+    const filtered = sessions.filter(entry => entry.id !== sessionId);
+    saveRecordingSessions(filtered, settings);
+
+    if (!session)
+        return;
+
+    for (const track of session.tracks || []) {
+        if (!track.filename)
+            continue;
+
+        const trackPath = getRecordingSessionPath(track.filename, settings, session);
+        if (!GLib.file_test(trackPath, GLib.FileTest.EXISTS))
+            continue;
+
+        try {
+            Gio.File.new_for_path(trackPath).trash(null);
+        } catch (error) {
+            logError(error, `Failed to delete recording track ${track.filename}`);
+        }
+    }
+
+    const sessionDir = getRecordingSessionDir(null, settings, session);
+    if (!GLib.file_test(sessionDir, GLib.FileTest.IS_DIR))
+        return;
+
+    const dir = Gio.File.new_for_path(sessionDir);
+    let enumerator;
+    try {
+        enumerator = dir.enumerate_children('standard::name,type', Gio.FileQueryInfoFlags.NONE, null);
+    } catch (error) {
+        return;
+    }
+
+    let hasAudioFiles = false;
+    let info;
+    while ((info = enumerator.next_file(null))) {
+        if (info.get_file_type() !== Gio.FileType.REGULAR)
+            continue;
+
+        if (RECORDING_AUDIO_EXTENSION_PATTERN.test(info.get_name())) {
+            hasAudioFiles = true;
+            break;
+        }
+    }
+
+    if (!hasAudioFiles) {
+        try {
+            dir.trash(null);
+        } catch (error) {
+            logError(error, 'Failed to remove empty station recording folder');
+        }
+    }
+}
+
+export function generateRecordingSessionId() {
+    return `rec-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+}
+
+export function generateRecordingTrackId() {
+    return `track-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+}
+
+export function formatDuration(seconds) {
+    const total = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const secs = total % 60;
+    if (hours > 0)
+        return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    return `${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+export function formatRecordingDate(timestamp) {
+    if (!timestamp)
+        return '';
+    const date = new Date(timestamp);
+    return date.toLocaleString();
 }
 
 export function truncateString(str, maxLength = 30) {
@@ -289,6 +763,39 @@ function _sanitizeStation(station) {
         countrycode: station.countrycode || '',
         favorite: station.favorite || false,
         lastPlayed: station.lastPlayed || null,
+    };
+}
+
+function _sanitizeRecordingTrack(track) {
+    return {
+        id: track.id || generateRecordingTrackId(),
+        index: Number.isFinite(track.index) ? track.index : 0,
+        title: track.title || '',
+        artist: track.artist || '',
+        filename: track.filename || '',
+        startedAt: track.startedAt || null,
+        endedAt: track.endedAt || null,
+        durationSeconds: Number.isFinite(track.durationSeconds) ? track.durationSeconds : 0,
+    };
+}
+
+function _sanitizeRecordingSession(session) {
+    const tracks = Array.isArray(session.tracks)
+        ? session.tracks.map(_sanitizeRecordingTrack)
+        : [];
+
+    return {
+        id: session.id || generateRecordingSessionId(),
+        folderName: session.folderName ||
+            sanitizeRecordingFilename(session.stationName, session.id || generateRecordingSessionId()),
+        stationUuid: session.stationUuid || '',
+        stationName: session.stationName || '',
+        stationUrl: session.stationUrl || '',
+        startedAt: session.startedAt || null,
+        endedAt: session.endedAt || null,
+        format: session.format || 'mp3',
+        recordingsDir: session.recordingsDir || '',
+        tracks,
     };
 }
 

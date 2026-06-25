@@ -17,6 +17,15 @@ import {
     createStationFromRadioBrowser,
     createManualStation,
     truncateString,
+    deleteRecordingSession,
+    getRecordingSessionPath,
+    getRecordingsDir,
+    getCustomRecordingsDir,
+    connectRecordingsDirChanged,
+    loadRecordingSessionsSync,
+    formatDuration,
+    formatRecordingDate,
+    sanitizeRecordingFilename,
 } from './radioUtils.js';
 
 initTranslations(_);
@@ -693,6 +702,358 @@ const AddStationsPage = GObject.registerClass(
         }
     });
 
+const RecordingsPage = GObject.registerClass(
+    class RecordingsPage extends Adw.PreferencesPage {
+        _init(settings, window) {
+            super._init({
+                title: _('Recordings'),
+                icon_name: 'folder-music-symbolic',
+            });
+
+            this._settings = settings;
+            this._window = window;
+            this._sessions = [];
+            this._contentRows = [];
+
+            this._group = new Adw.PreferencesGroup({
+                title: _('Recorded sessions'),
+                description: _('You can access radio recordings from here. Expand each session to see their tracks.'),
+            });
+            this.add(this._group);
+
+            connectRecordingsDirChanged(this._settings, () => {
+                try {
+                    this.refresh();
+                } catch (error) {
+                    logError(error, 'Failed to refresh recordings page');
+                }
+            });
+
+            this.connect('map', () => {
+                try {
+                    this.refresh();
+                } catch (error) {
+                    logError(error, 'Failed to refresh recordings page');
+                }
+            });
+        }
+
+        _showToast(title, timeout = 3) {
+            if (!this._window)
+                return;
+
+            const toast = new Adw.Toast({ title, timeout });
+            this._window.add_toast(toast);
+        }
+
+        _clearContentRows() {
+            for (const row of this._contentRows) {
+                try {
+                    this._group.remove(row);
+                } catch (error) {
+                    logError(error, 'Failed to remove recordings row');
+                }
+            }
+            this._contentRows = [];
+        }
+
+        refresh() {
+            try {
+                this._sessions = loadRecordingSessionsSync(this._settings);
+            } catch (error) {
+                logError(error, 'Failed to load recording sessions');
+                this._sessions = [];
+            }
+
+            this._clearContentRows();
+
+            if (!this._sessions.length) {
+                const row = new Adw.ActionRow({
+                    title: _('No recordings yet.'),
+                    subtitle: _('Use the record button in the panel menu while playing a station.'),
+                });
+                row.set_sensitive(false);
+                this._group.add(row);
+                this._contentRows.push(row);
+                return;
+            }
+
+            this._sessions.forEach(session => this._appendSessionRow(session));
+        }
+
+        _sessionDuration(session) {
+            if (!session.startedAt)
+                return 0;
+
+            const end = session.endedAt || Date.now();
+            return Math.max(0, Math.floor((end - session.startedAt) / 1000));
+        }
+
+        _appendSessionRow(session) {
+            const duration = this._sessionDuration(session);
+            const trackCount = session.tracks?.length || 0;
+            const subtitle = _('%s • %s • %d track(s)').format(
+                formatRecordingDate(session.startedAt),
+                formatDuration(duration),
+                trackCount
+            );
+
+            const expander = new Adw.ExpanderRow({
+                title: truncateString(session.stationName || _('Unknown station'), 48),
+                subtitle,
+            });
+
+            const sessionButtonBox = new Gtk.Box({
+                orientation: Gtk.Orientation.HORIZONTAL,
+                spacing: 6,
+            });
+
+            const hasTrackFiles = (session.tracks || []).some(track => {
+                const sourcePath = getRecordingSessionPath(track.filename, this._settings, session);
+                return GLib.file_test(sourcePath, GLib.FileTest.EXISTS);
+            });
+
+            const saveSessionButton = new Gtk.Button({
+                icon_name: 'document-save-symbolic',
+                tooltip_text: _('Save or export session'),
+                has_frame: false,
+                sensitive: hasTrackFiles,
+            });
+            saveSessionButton.connect('clicked', () => this._saveSession(session));
+            sessionButtonBox.append(saveSessionButton);
+
+            const deleteButton = new Gtk.Button({
+                icon_name: 'user-trash-symbolic',
+                tooltip_text: _('Delete session'),
+                has_frame: false,
+            });
+            deleteButton.connect('clicked', () => this._deleteSession(session));
+            sessionButtonBox.append(deleteButton);
+
+            expander.add_suffix(sessionButtonBox);
+
+            (session.tracks || []).forEach(track => {
+                const trackRow = new Adw.ActionRow({
+                    title: truncateString(track.title || _('Unknown title'), 48),
+                    subtitle: truncateString(track.artist || '', 48) +
+                        (track.durationSeconds ? ` • ${formatDuration(track.durationSeconds)}` : ''),
+                });
+                trackRow.set_activatable(false);
+
+                const sourcePath = getRecordingSessionPath(track.filename, this._settings, session);
+                const sourceExists = GLib.file_test(sourcePath, GLib.FileTest.EXISTS);
+
+                const saveButton = new Gtk.Button({
+                    icon_name: 'document-save-symbolic',
+                    tooltip_text: _('Save track'),
+                    has_frame: false,
+                    sensitive: sourceExists,
+                });
+                saveButton.connect('clicked', () => this._saveTrack(session, track));
+                trackRow.add_suffix(saveButton);
+
+                expander.add_row(trackRow);
+            });
+
+            this._group.add(expander);
+            this._contentRows.push(expander);
+        }
+
+        _deleteSession(session) {
+            const dialog = new Adw.MessageDialog({
+                heading: _('Delete recording session?'),
+                body: _('This will permanently delete all tracks in this session.'),
+                close_response: 'cancel',
+                modal: true,
+            });
+
+            dialog.add_response('cancel', _('Cancel'));
+            dialog.add_response('delete', _('Delete'));
+            dialog.set_response_appearance('delete', Adw.ResponseAppearance.DESTRUCTIVE);
+
+            dialog.connect('response', async (_dlg, response) => {
+                if (response !== 'delete')
+                    return;
+
+                try {
+                    await deleteRecordingSession(session.id, this._settings);
+                    this._showToast(_('Recording session deleted'));
+                    this.refresh();
+                } catch (error) {
+                    logError(error, 'Failed to delete recording session');
+                    this._showToast(_('Failed to delete recording session'));
+                }
+            });
+
+            const window = this.get_root();
+            if (window && window instanceof Gtk.Window)
+                dialog.set_transient_for(window);
+
+            dialog.present();
+        }
+
+        _suggestedSessionFilename(session) {
+            const format = session.format || 'mp3';
+            const stationPart = sanitizeRecordingFilename(session.stationName);
+            const datePart = session.startedAt
+                ? GLib.DateTime.new_from_unix_local(Math.floor(session.startedAt / 1000)).format('%Y-%m-%d %H-%M')
+                : '';
+
+            return datePart
+                ? `${stationPart} - ${datePart}.${format}`
+                : `${stationPart}.${format}`;
+        }
+
+        _suggestedSessionFolderName(session) {
+            const stationPart = sanitizeRecordingFilename(session.stationName);
+            const datePart = session.startedAt
+                ? GLib.DateTime.new_from_unix_local(Math.floor(session.startedAt / 1000)).format('%Y-%m-%d %H-%M')
+                : '';
+
+            return datePart ? `${stationPart} - ${datePart}` : stationPart;
+        }
+
+        _saveSession(session) {
+            const tracks = (session.tracks || []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+            const trackFiles = tracks
+                .map(track => ({
+                    track,
+                    sourcePath: getRecordingSessionPath(track.filename, this._settings, session),
+                }))
+                .filter(entry => GLib.file_test(entry.sourcePath, GLib.FileTest.EXISTS));
+
+            if (!trackFiles.length) {
+                this._showToast(_('No track files found for this session'));
+                return;
+            }
+
+            if (trackFiles.length === 1) {
+                const fileChooser = new Gtk.FileChooserNative({
+                    title: _('Save track'),
+                    action: Gtk.FileChooserAction.SAVE,
+                    accept_label: _('Save'),
+                });
+                fileChooser.set_current_name(this._suggestedSessionFilename(session));
+
+                fileChooser.connect('response', (dialog, response) => {
+                    if (response !== Gtk.ResponseType.ACCEPT)
+                        return;
+
+                    const destFile = fileChooser.get_file();
+                    if (!destFile)
+                        return;
+
+                    try {
+                        Gio.File.new_for_path(trackFiles[0].sourcePath).copy(
+                            destFile,
+                            Gio.FileCopyFlags.OVERWRITE,
+                            null,
+                            null
+                        );
+                        this._showToast(_('Session saved successfully'));
+                    } catch (error) {
+                        logError(error, 'Failed to save recording session');
+                        this._showToast(_('Failed to save session'));
+                    }
+                });
+
+                const window = this.get_root();
+                if (window && window instanceof Gtk.Window)
+                    fileChooser.set_transient_for(window);
+
+                fileChooser.show();
+                return;
+            }
+
+            const fileChooser = new Gtk.FileChooserNative({
+                title: _('Export session tracks'),
+                action: Gtk.FileChooserAction.SELECT_FOLDER,
+                accept_label: _('Select'),
+            });
+
+            fileChooser.connect('response', (dialog, response) => {
+                if (response !== Gtk.ResponseType.ACCEPT)
+                    return;
+
+                const destFolder = fileChooser.get_file();
+                if (!destFolder)
+                    return;
+
+                try {
+                    const baseDir = destFolder.get_path();
+                    const exportDir = GLib.build_filenamev([baseDir, this._suggestedSessionFolderName(session)]);
+                    GLib.mkdir_with_parents(exportDir, 0o755);
+
+                    for (const { track, sourcePath } of trackFiles) {
+                        const destPath = GLib.build_filenamev([exportDir, track.filename]);
+                        Gio.File.new_for_path(sourcePath).copy(
+                            Gio.File.new_for_path(destPath),
+                            Gio.FileCopyFlags.OVERWRITE,
+                            null,
+                            null
+                        );
+                    }
+                    this._showToast(_('Session exported successfully'));
+                } catch (error) {
+                    logError(error, 'Failed to export recording session');
+                    this._showToast(_('Failed to export session'));
+                }
+            });
+
+            const window = this.get_root();
+            if (window && window instanceof Gtk.Window)
+                fileChooser.set_transient_for(window);
+
+            fileChooser.show();
+        }
+
+        _saveTrack(session, track) {
+            const sourcePath = getRecordingSessionPath(track.filename, this._settings, session);
+            if (!GLib.file_test(sourcePath, GLib.FileTest.EXISTS)) {
+                this._showToast(_('Track file is missing'));
+                return;
+            }
+
+            const suggestedName = track.filename || `${track.title}.${session.format || 'mp3'}`;
+
+            const fileChooser = new Gtk.FileChooserNative({
+                title: _('Save track'),
+                action: Gtk.FileChooserAction.SAVE,
+                accept_label: _('Save'),
+            });
+            fileChooser.set_current_name(suggestedName);
+
+            fileChooser.connect('response', (dialog, response) => {
+                if (response !== Gtk.ResponseType.ACCEPT)
+                    return;
+
+                const destFile = fileChooser.get_file();
+                if (!destFile)
+                    return;
+
+                try {
+                    const sourceFile = Gio.File.new_for_path(sourcePath);
+                    sourceFile.copy(
+                        destFile,
+                        Gio.FileCopyFlags.OVERWRITE,
+                        null,
+                        null
+                    );
+                    this._showToast(_('Track saved successfully'));
+                } catch (error) {
+                    logError(error, 'Failed to save track');
+                    this._showToast(_('Failed to save track'));
+                }
+            });
+
+            const window = this.get_root();
+            if (window && window instanceof Gtk.Window)
+                fileChooser.set_transient_for(window);
+
+            fileChooser.show();
+        }
+    });
+
 const GeneralSettingsPage = GObject.registerClass(
     class GeneralSettingsPage extends Adw.PreferencesPage {
         _init(settings, stations, refreshCallback, window) {
@@ -760,6 +1121,47 @@ const GeneralSettingsPage = GObject.registerClass(
             mprisRow.add_suffix(mprisSwitch);
             generalGroup.add(mprisRow);
 
+            const recordingsGroup = new Adw.PreferencesGroup({
+                title: _('Recordings'),
+                description: _('Choose where audio tracks are saved. Session metadata is stored separately in the app data folder.'),
+            });
+            this.add(recordingsGroup);
+
+            this._recordingsDirRow = new Adw.ActionRow({
+                title: _('Recordings folder'),
+            });
+            this._recordingsDirRow.set_activatable(true);
+            this._recordingsDirRow.connect('activated', () => this._chooseRecordingsFolder());
+            this._updateRecordingsDirRowSubtitle();
+
+            const recordingsDirButtonBox = new Gtk.Box({
+                orientation: Gtk.Orientation.HORIZONTAL,
+                spacing: 6,
+            });
+
+            const chooseFolderButton = new Gtk.Button({
+                icon_name: 'folder-symbolic',
+                tooltip_text: _('Choose folder'),
+                has_frame: false,
+            });
+            chooseFolderButton.connect('clicked', () => this._chooseRecordingsFolder());
+            recordingsDirButtonBox.append(chooseFolderButton);
+
+            const resetFolderButton = new Gtk.Button({
+                icon_name: 'edit-clear-symbolic',
+                tooltip_text: _('Use default folder'),
+                has_frame: false,
+            });
+            resetFolderButton.connect('clicked', () => this._resetRecordingsFolder());
+            recordingsDirButtonBox.append(resetFolderButton);
+
+            this._recordingsDirRow.add_suffix(recordingsDirButtonBox);
+            recordingsGroup.add(this._recordingsDirRow);
+
+            connectRecordingsDirChanged(this._settings, () => {
+                this._updateRecordingsDirRowSubtitle();
+            });
+
             const importExportGroup = new Adw.PreferencesGroup({
                 title: _('Import / Export'),
                 description: _('Backup or restore your station list.'),
@@ -799,6 +1201,64 @@ const GeneralSettingsPage = GObject.registerClass(
 
         setStations(stations) {
             this._stations = stations;
+        }
+
+        _updateRecordingsDirRowSubtitle() {
+            const path = getRecordingsDir(this._settings);
+            const usesDefault = !getCustomRecordingsDir(this._settings);
+            const subtitle = usesDefault
+                ? _('Default: %s').format(path)
+                : path;
+            this._recordingsDirRow.set_subtitle(subtitle);
+        }
+
+        _chooseRecordingsFolder() {
+            const fileChooser = new Gtk.FileChooserNative({
+                title: _('Choose recordings folder'),
+                action: Gtk.FileChooserAction.SELECT_FOLDER,
+                accept_label: _('Select'),
+            });
+
+            const currentDir = getRecordingsDir(this._settings);
+            if (currentDir && GLib.file_test(currentDir, GLib.FileTest.IS_DIR))
+                fileChooser.set_file(Gio.File.new_for_path(currentDir));
+
+            fileChooser.connect('response', (dialog, response) => {
+                if (response !== Gtk.ResponseType.ACCEPT)
+                    return;
+
+                const file = fileChooser.get_file();
+                if (!file)
+                    return;
+
+                const path = file.get_path();
+                if (!path)
+                    return;
+
+                try {
+                    this._settings.set_string('recordings-directory', path);
+                    this._showToast(_('Recordings folder updated'));
+                } catch (error) {
+                    logError(error, 'Failed to save recordings folder setting');
+                    this._showToast(_('Could not save recordings folder setting'));
+                }
+            });
+
+            const window = this.get_root();
+            if (window && window instanceof Gtk.Window)
+                fileChooser.set_transient_for(window);
+
+            fileChooser.show();
+        }
+
+        _resetRecordingsFolder() {
+            try {
+                this._settings.set_string('recordings-directory', '');
+                this._showToast(_('Using default recordings folder'));
+            } catch (error) {
+                logError(error, 'Failed to reset recordings folder setting');
+                this._showToast(_('Could not reset recordings folder setting'));
+            }
         }
 
         _showToast(title, timeout = 3) {
@@ -919,6 +1379,7 @@ export default class YetAnotherRadioPreferences extends ExtensionPreferences {
         
         const generalSettingsPage = new GeneralSettingsPage(settings, [], refreshCallback, window);
         const savedStationsPage = new SavedStationsPage([], refreshCallback);
+        const recordingsPage = new RecordingsPage(settings, window);
         const addStationsPage = new AddStationsPage([], refreshCallback, settings);
 
         loadStations().then(stations => {
@@ -930,6 +1391,7 @@ export default class YetAnotherRadioPreferences extends ExtensionPreferences {
 
         window.add(generalSettingsPage);
         window.add(savedStationsPage);
+        window.add(recordingsPage);
         window.add(addStationsPage);
 
         window.connect('close-request', () => {

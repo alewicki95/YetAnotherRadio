@@ -9,10 +9,11 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import { ensureStorageFile, loadStations, STORAGE_PATH, initTranslations } from './radioUtils.js';
-import { createMetadataItem, updateCopyButton, updateMetadataDisplay, updatePlaybackStateIcon } from './modules/metadataDisplay.js';
+import { createMetadataItem, updateCopyButton, updateMetadataDisplay, updatePlaybackStateIcon, updateRecordingState } from './modules/metadataDisplay.js';
 import { createVolumeItem, onVolumeChanged } from './modules/volumeControl.js';
 import { createStationMenuItem } from './modules/stationMenu.js';
 import PlaybackManager from './modules/playbackManager.js';
+import RecordingManager from './modules/recordingManager.js';
 import MprisInterface from './modules/mprisInterface.js';
 
 const Indicator = GObject.registerClass(
@@ -37,6 +38,8 @@ const Indicator = GObject.registerClass(
                 onMetadataUpdate: () => this._updateMetadataDisplay(),
                 onVisibilityChanged: (visible) => this._updateVisibility(visible)
             }, this._defaultIcon);
+
+            this._recordingManager = new RecordingManager(this._settings, this._playbackManager);
 
             this._panelIcon = new St.Icon({
                 gicon: this._defaultIcon,
@@ -78,10 +81,15 @@ const Indicator = GObject.registerClass(
 
             this._metadataItem = createMetadataItem(
                 () => this._togglePlayback(),
-                () => this._stopPlayback()
+                () => this._stopPlayback(),
+                () => this._toggleRecording()
             );
             this._metadataItem.visible = false;
             this.menu.addMenuItem(this._metadataItem);
+
+            this._recordingManager.addListener('onRecordingChanged', (active) => {
+                updateRecordingState(this._metadataItem, active);
+            });
 
             this._volumeItem = createVolumeItem(this._settings);
             this._volumeItem._volumeSlider.connect('notify::value', () => this._onVolumeChanged());
@@ -128,6 +136,7 @@ const Indicator = GObject.registerClass(
 
         _onStateChanged(state) {
             updatePlaybackStateIcon(this._metadataItem, state);
+            this._recordingManager.onPlaybackStateChanged(state);
 
             if (!this._panelIcon)
                 return;
@@ -138,6 +147,8 @@ const Indicator = GObject.registerClass(
         }
 
         _onStationChanged(station) {
+            this._recordingManager.onStationChanged(station);
+
             if (this._refreshIdleId)
                 return;
 
@@ -166,6 +177,8 @@ const Indicator = GObject.registerClass(
         }
 
         _updateMetadataDisplay() {
+            this._recordingManager.onMetadataUpdate(this._playbackManager.currentMetadata);
+
             updateMetadataDisplay(
                 this._settings,
                 this._metadataItem,
@@ -232,6 +245,14 @@ const Indicator = GObject.registerClass(
             this._playbackManager.stop();
         }
 
+        _toggleRecording() {
+            this._recordingManager.toggle(
+                this._playbackManager.nowPlaying,
+                this._playbackManager.currentMetadata,
+                this._playbackManager.playbackState
+            );
+        }
+
         _orderedStations() {
             const favorites = this._stations
                 .filter(s => s.favorite)
@@ -265,6 +286,7 @@ const Indicator = GObject.registerClass(
         }
 
         destroy() {
+            this._recordingManager.destroy();
             this._playbackManager.destroy();
 
             if (this._refreshIdleId) {
@@ -294,7 +316,15 @@ export default class YetAnotherRadioExtension extends Extension {
         this._settings = this.getSettings();
         this._indicator = new Indicator(
             [],
-            () => this.openPreferences(),
+            () => {
+                this.openPreferences().catch(error => {
+                    logError(error, 'Failed to open preferences');
+                    Main.notifyError(
+                        _('Yet Another Radio'),
+                        GLib.markup_escape_text(_('Could not open preferences.'), -1)
+                    );
+                });
+            },
             this.path,
             this._settings,
             (count) => this._mpris?.setStationCount(count)

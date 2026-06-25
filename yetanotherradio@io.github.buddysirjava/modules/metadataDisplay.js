@@ -7,8 +7,35 @@ import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.j
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import { createHoverScrollingLabel, createScrollGroup } from './hoverScrollingLabel.js';
+import { formatDuration } from '../radioUtils.js';
 
 const METADATA_ICON_SIZE = 64;
+const COMBINED_TITLE_SEPARATORS = [' - ', ' – ', ' — '];
+
+function _splitCombinedTrackTitle(title, artist) {
+    const rawArtist = String(artist ?? '').trim();
+    if (rawArtist) {
+        const rawTitle = String(title ?? '').trim();
+        return { title: rawTitle || null, artist: rawArtist };
+    }
+
+    const rawTitle = String(title ?? '').trim();
+    if (!rawTitle)
+        return { title: null, artist: null };
+
+    for (const separator of COMBINED_TITLE_SEPARATORS) {
+        const index = rawTitle.indexOf(separator);
+        if (index <= 0)
+            continue;
+
+        const parsedArtist = rawTitle.slice(0, index).trim();
+        const parsedTitle = rawTitle.slice(index + separator.length).trim();
+        if (parsedArtist && parsedTitle)
+            return { title: parsedTitle, artist: parsedArtist };
+    }
+
+    return { title: rawTitle, artist: null };
+}
 
 function _buildTrackText(currentMetadata) {
     const title = String(currentMetadata?.title ?? '').trim();
@@ -18,17 +45,6 @@ function _buildTrackText(currentMetadata) {
         return `${artist} - ${title}`;
 
     return title || artist || '';
-}
-
-function _formatElapsedTime(playTimeSeconds) {
-    const totalSeconds = Number.isFinite(playTimeSeconds) ? Math.max(0, Math.floor(playTimeSeconds)) : 0;
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    if (hours > 0)
-        return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-
-    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
 function _copyToClipboard(text) {
@@ -46,7 +62,7 @@ function _copyToClipboard(text) {
     }
 }
 
-export function createMetadataItem(playPauseCallback, stopCallback) {
+export function createMetadataItem(playPauseCallback, stopCallback, recordCallback) {
     const box = new St.BoxLayout({
         vertical: false,
         style_class: 'metadata-item-box',
@@ -144,20 +160,22 @@ export function createMetadataItem(playPauseCallback, stopCallback) {
     bottomRow.add_child(metaInfoBox);
 
     const controlsBox = new St.BoxLayout({
-        style_class: 'button metadata-controls-pill',
+        style_class: 'metadata-controls-box',
         vertical: false,
         x_align: Clutter.ActorAlign.END,
         y_align: Clutter.ActorAlign.CENTER,
         x_expand: true,
-        reactive: true
     });
 
-    controlsBox.connect('enter-event', () => {
-        return Clutter.EVENT_PROPAGATE;
+    const playbackControlsBox = new St.BoxLayout({
+        style_class: 'button metadata-controls-pill',
+        vertical: false,
+        y_align: Clutter.ActorAlign.CENTER,
+        reactive: true,
     });
-    controlsBox.connect('leave-event', () => {
-        return Clutter.EVENT_PROPAGATE;
-    });
+
+    playbackControlsBox.connect('enter-event', () => Clutter.EVENT_PROPAGATE);
+    playbackControlsBox.connect('leave-event', () => Clutter.EVENT_PROPAGATE);
 
     const playPauseBtn = new St.Button({
         style_class: 'icon-button metadata-overlay-button',
@@ -167,7 +185,7 @@ export function createMetadataItem(playPauseCallback, stopCallback) {
         })
     });
     playPauseBtn.connect('clicked', () => playPauseCallback?.());
-    controlsBox.add_child(playPauseBtn);
+    playbackControlsBox.add_child(playPauseBtn);
 
     const stopBtn = new St.Button({
         style_class: 'icon-button metadata-overlay-button',
@@ -177,9 +195,32 @@ export function createMetadataItem(playPauseCallback, stopCallback) {
         })
     });
     stopBtn.connect('clicked', () => stopCallback?.());
-    controlsBox.add_child(stopBtn);
+    playbackControlsBox.add_child(stopBtn);
 
+    const recordControlsBox = new St.BoxLayout({
+        style_class: 'button metadata-controls-pill',
+        vertical: false,
+        y_align: Clutter.ActorAlign.CENTER,
+        reactive: true,
+    });
+
+    recordControlsBox.connect('enter-event', () => Clutter.EVENT_PROPAGATE);
+    recordControlsBox.connect('leave-event', () => Clutter.EVENT_PROPAGATE);
+
+    const recordBtn = new St.Button({
+        style_class: 'icon-button metadata-overlay-button metadata-record-button',
+        child: new St.Icon({
+            icon_name: 'media-record-symbolic',
+            style_class: 'metadata-overlay-icon'
+        })
+    });
+    recordBtn.connect('clicked', () => recordCallback?.());
+    recordControlsBox.add_child(recordBtn);
+
+    controlsBox.add_child(playbackControlsBox);
+    controlsBox.add_child(recordControlsBox);
     bottomRow.add_child(controlsBox);
+
     textBox.add_child(bottomRow);
 
     box.add_child(textBox);
@@ -200,6 +241,7 @@ export function createMetadataItem(playPauseCallback, stopCallback) {
     item._qualityLabel = qualityLabel;
     item._playPauseBtn = playPauseBtn;
     item._copyTrackBtn = copyTrackBtn;
+    item._recordBtn = recordBtn;
 
     return item;
 }
@@ -223,6 +265,45 @@ export function updatePlaybackStateIcon(item, playbackState) {
         icon.icon_name = 'media-playback-pause-symbolic';
     } else {
         icon.icon_name = 'media-playback-start-symbolic';
+    }
+}
+
+const RECORD_BLINK_INTERVAL_MS = 500;
+
+function _stopRecordBlink(item) {
+    if (item._recordBlinkId) {
+        GLib.source_remove(item._recordBlinkId);
+        item._recordBlinkId = 0;
+    }
+
+    const icon = item._recordBtn?.child;
+    if (icon)
+        icon.opacity = 255;
+}
+
+function _startRecordBlink(item) {
+    _stopRecordBlink(item);
+
+    const icon = item._recordBtn.child;
+    let bright = true;
+
+    item._recordBlinkId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, RECORD_BLINK_INTERVAL_MS, () => {
+        bright = !bright;
+        icon.opacity = bright ? 255 : 90;
+        return GLib.SOURCE_CONTINUE;
+    });
+}
+
+export function updateRecordingState(item, isRecording) {
+    if (!item?._recordBtn)
+        return;
+
+    if (isRecording) {
+        item._recordBtn.add_style_class_name('metadata-record-button-active');
+        _startRecordBlink(item);
+    } else {
+        item._recordBtn.remove_style_class_name('metadata-record-button-active');
+        _stopRecordBlink(item);
     }
 }
 
@@ -301,6 +382,8 @@ export function parseMetadataTags(tagList) {
         [, artist] = tagList.get_string(Gst.TAG_ARTIST);
     }
 
+    ({ title, artist } = _splitCombinedTrackTitle(title, artist));
+
     let albumArt = null;
     let sample;
     if (tagList.get_sample(Gst.TAG_IMAGE)) {
@@ -348,7 +431,7 @@ export function updateMetadataDisplay(settings, metadataItem, nowPlaying, curren
     const stationName = String(nowPlaying?.name ?? nowPlaying?.url ?? '').trim();
     let artist = rawArtist || stationName || _('Unknown artist');
     const bitrate = currentMetadata.bitrate;
-    const playTime = _formatElapsedTime(currentMetadata?.playTimeSeconds);
+    const playTime = formatDuration(currentMetadata?.playTimeSeconds);
 
     metadataItem._titleScroll.setText(title);
     metadataItem._artistScroll.setText(artist);

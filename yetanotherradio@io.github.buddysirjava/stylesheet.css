@@ -10,8 +10,8 @@
 
 .metadata-text-box {
     spacing: 4px;
-    max-width: 180px;
-    min-width: 180px;
+    max-width: 220px;
+    min-width: 220px;
 }
 
 .metadata-title {
@@ -24,8 +24,8 @@
 }
 
 .yetanotherradio-hover-scroll-artist {
-    width: 180px;
-    max-width: 180px;
+    width: 220px;
+    max-width: 220px;
     min-height: 1.35em;
     max-height: 1.35em;
 }
@@ -48,8 +48,12 @@
 }
 
 .metadata-bottom-row {
-    spacing: 12px;
+    spacing: 8px;
     padding-top: 2px;
+}
+
+.metadata-info-box {
+    spacing: 1px;
 }
 
 .metadata-quality {
@@ -59,10 +63,6 @@
 .metadata-time {
     font-size: 0.9em;
     font-weight: 600;
-}
-
-.metadata-info-box {
-    spacing: 1px;
 }
 
 preferencespage preferencesgroup button {
@@ -97,7 +97,7 @@ preferencespage preferencesgroup actionrow {
 
 
 .metadata-controls-box {
-    spacing: 6px;
+    spacing: 8px;
     margin-left: 6px;
 }
 
@@ -116,6 +116,26 @@ preferencespage preferencesgroup actionrow {
 .metadata-controls-pill {
     border-radius: 24px;
     padding: 2px;
+}
+
+.metadata-record-button,
+.metadata-record-button:hover,
+.metadata-record-button:active,
+.metadata-record-button:focus {
+    background-color: transparent;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+.metadata-record-button StIcon {
+    color: rgba(246, 97, 81, 0.65);
+}
+
+.metadata-record-button.metadata-record-button-active StIcon,
+.metadata-record-button.metadata-record-button-active:hover StIcon,
+.metadata-record-button.metadata-record-button-active:active StIcon,
+.metadata-record-button.metadata-record-button-active:focus StIcon {
+    color: #ED333B;
 }
 
 .metadata-overlay-button {
