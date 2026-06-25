@@ -13,7 +13,7 @@ import {
     getRecordingSessionPath,
     getRecordingStationDirName,
     listRecordingTrackFilenames,
-    loadRecordingSessionsSync,
+    loadRecordingSessions,
     saveRecordingSessions,
     stationDisplayName,
 } from '../radioUtils.js';
@@ -134,22 +134,23 @@ export default class RecordingManager {
         if (!this._recording)
             return;
 
+        const sessionToSave = this._session;
+
         this._finalizeCurrentTrack();
         this._playbackManager?.stopRecordingBranch?.();
 
-        if (this._session) {
-            this._session.endedAt = Date.now();
-            this._session.format = this._format;
-            this._session.recordingsDir = getRecordingsDir(this._settings);
+        if (sessionToSave) {
+            sessionToSave.endedAt = Date.now();
+            sessionToSave.format = this._format;
+            sessionToSave.recordingsDir = getRecordingsDir(this._settings);
 
-            if (this._session.tracks.length > 0) {
-                try {
-                    const sessions = loadRecordingSessionsSync(this._settings);
-                    sessions.unshift(this._session);
+            if (sessionToSave.tracks.length > 0) {
+                loadRecordingSessions(this._settings).then(sessions => {
+                    sessions.unshift(sessionToSave);
                     saveRecordingSessions(sessions, this._settings);
-                } catch (error) {
+                }).catch(error => {
                     logError(error, 'Failed to persist recording session');
-                }
+                });
             }
         }
 

@@ -22,7 +22,7 @@ import {
     getRecordingsDir,
     getCustomRecordingsDir,
     connectRecordingsDirChanged,
-    loadRecordingSessionsSync,
+    loadRecordingSessions,
     formatDuration,
     formatRecordingDate,
     sanitizeRecordingFilename,
@@ -729,13 +729,17 @@ const RecordingsPage = GObject.registerClass(
                 }
             });
 
-            this.connect('map', () => {
-                try {
-                    this.refresh();
-                } catch (error) {
+            const refreshIfVisible = () => {
+                if (!this.get_visible())
+                    return;
+
+                this.refresh().catch(error => {
                     logError(error, 'Failed to refresh recordings page');
-                }
-            });
+                });
+            };
+
+            this.connect('map', refreshIfVisible);
+            this.connect('notify::visible', refreshIfVisible);
         }
 
         _showToast(title, timeout = 3) {
@@ -757,9 +761,9 @@ const RecordingsPage = GObject.registerClass(
             this._contentRows = [];
         }
 
-        refresh() {
+        async refresh() {
             try {
-                this._sessions = loadRecordingSessionsSync(this._settings);
+                this._sessions = await loadRecordingSessions(this._settings);
             } catch (error) {
                 logError(error, 'Failed to load recording sessions');
                 this._sessions = [];

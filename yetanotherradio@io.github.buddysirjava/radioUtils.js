@@ -239,7 +239,20 @@ export function ensureSessionsIndex() {
     }
 }
 
-function _migrateSessionsIndexFromRecordingsDir(settings = null) {
+function _loadFileContentsAsync(path) {
+    const file = Gio.File.new_for_path(path);
+    return new Promise((resolve, reject) => {
+        file.load_contents_async(null, (obj, res) => {
+            try {
+                resolve(obj.load_contents_finish(res));
+            } catch (error) {
+                reject(error);
+            }
+        });
+    });
+}
+
+async function _migrateSessionsIndexFromRecordingsDir(settings = null) {
     const newPath = getSessionsIndexPath();
     const oldPath = GLib.build_filenamev([getRecordingsDir(settings), 'sessions.json']);
 
@@ -256,11 +269,28 @@ function _migrateSessionsIndexFromRecordingsDir(settings = null) {
     }
 
     try {
-        const [, contents] = Gio.File.new_for_path(oldPath).load_contents(null);
+        const [, contents] = await _loadFileContentsAsync(oldPath);
         GLib.file_set_contents(newPath, contents);
         Gio.File.new_for_path(oldPath).delete(null);
     } catch (error) {
         logError(error, 'Failed to migrate recording sessions index');
+    }
+}
+
+async function _loadRecordingSessionsIndex(settings = null) {
+    try {
+        const [, contents] = await _loadFileContentsAsync(getSessionsIndexPath());
+        const text = new TextDecoder().decode(contents);
+        const parsed = JSON.parse(text);
+        if (!Array.isArray(parsed))
+            return [];
+
+        return parsed
+            .filter(session => typeof session === 'object' && session?.id)
+            .map(_sanitizeRecordingSession);
+    } catch (error) {
+        logError(error, 'Failed to load recording sessions index');
+        return [];
     }
 }
 
@@ -288,46 +318,36 @@ function _sessionStorageKey(session, settings = null) {
     return `${dir}/${folder}`;
 }
 
-export function loadRecordingSessionsSync(settings = null) {
+export async function loadRecordingSessions(settings = null) {
     try {
         ensureSessionsIndex();
         ensureRecordingsDir(settings);
-        _migrateSessionsIndexFromRecordingsDir(settings);
+        await _migrateSessionsIndexFromRecordingsDir(settings);
     } catch (error) {
         logError(error, 'Failed to ensure recording sessions index');
         return [];
     }
 
-    let indexed = [];
-    try {
-        const file = Gio.File.new_for_path(getSessionsIndexPath());
-        const [, contents] = file.load_contents(null);
-        const text = new TextDecoder().decode(contents);
-        const parsed = JSON.parse(text);
-        if (Array.isArray(parsed)) {
-            indexed = parsed
-                .filter(session => typeof session === 'object' && session?.id)
-                .map(_sanitizeRecordingSession);
-        }
-    } catch (error) {
-        logError(error, 'Failed to load recording sessions index');
-    }
-
+    const indexed = await _loadRecordingSessionsIndex(settings);
     return _mergeRecordingSessions(indexed, discoverRecordingSessionsFromDisk(settings), settings);
 }
 
 function _mergeRecordingSessions(indexed, discovered, settings = null) {
-    const byKey = new Map();
-    for (const session of indexed)
-        byKey.set(_sessionStorageKey(session, settings), session);
+    const sessions = new Map();
+    const indexedFolderKeys = new Set();
 
-    for (const session of discovered) {
-        const key = _sessionStorageKey(session, settings);
-        if (!byKey.has(key))
-            byKey.set(key, session);
+    for (const session of indexed) {
+        sessions.set(session.id, session);
+        indexedFolderKeys.add(_sessionStorageKey(session, settings));
     }
 
-    return [...byKey.values()].sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
+    for (const session of discovered) {
+        const folderKey = _sessionStorageKey(session, settings);
+        if (!indexedFolderKeys.has(folderKey))
+            sessions.set(folderKey, session);
+    }
+
+    return [...sessions.values()].sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0));
 }
 
 function _scanRecordingsDirectory(recordingsDir) {
@@ -427,49 +447,6 @@ export function discoverRecordingSessionsFromDisk(settings = null) {
         sessions.push(..._scanRecordingsDirectory(recordingsDir));
 
     return _mergeRecordingSessions([], sessions);
-}
-
-export async function loadRecordingSessions(settings = null) {
-    try {
-        ensureSessionsIndex();
-        ensureRecordingsDir(settings);
-        _migrateSessionsIndexFromRecordingsDir(settings);
-    } catch (error) {
-        logError(error, 'Failed to ensure recording sessions index');
-        return [];
-    }
-
-    try {
-        const file = Gio.File.new_for_path(getSessionsIndexPath());
-        const [success, contents] = await new Promise((resolve, reject) => {
-            file.load_contents_async(null, (obj, res) => {
-                try {
-                    resolve(obj.load_contents_finish(res));
-                } catch (e) {
-                    reject(e);
-                }
-            });
-        });
-
-        if (!success)
-            return loadRecordingSessionsSync(settings);
-
-        const text = new TextDecoder().decode(contents);
-        const parsed = JSON.parse(text);
-        if (!Array.isArray(parsed))
-            return [];
-
-        return _mergeRecordingSessions(
-            Array.isArray(parsed)
-                ? parsed.filter(session => typeof session === 'object' && session?.id).map(_sanitizeRecordingSession)
-                : [],
-            discoverRecordingSessionsFromDisk(settings),
-            settings
-        );
-    } catch (error) {
-        logError(error, 'Failed to load recording sessions asynchronously');
-        return loadRecordingSessionsSync(settings);
-    }
 }
 
 export function saveRecordingSessions(sessions, settings = null) {
