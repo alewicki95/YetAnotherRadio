@@ -46,9 +46,6 @@ function _configureScroll(label) {
     });
 }
 
-/**
- * @returns {{ add: (member: Object) => void, onEnter: (member: Object) => void }}
- */
 export function createScrollGroup() {
     const members = new Set();
 
@@ -66,15 +63,6 @@ export function createScrollGroup() {
     };
 }
 
-/**
- * @param {Object} params
- * @param {string} [params.styleClass]
- * @param {string} [params.clipStyleClass]
- * @param {boolean} [params.xExpand]
- * @param {boolean} [params.multiline]
- * @param {number} [params.maxLines]
- * @param {ReturnType<typeof createScrollGroup>} [params.scrollGroup]
- */
 export function createHoverScrollingLabel(params = {}) {
     const {
         styleClass = '',
