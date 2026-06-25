@@ -3,10 +3,10 @@ import Gio from 'gi://Gio';
 import Gst from 'gi://Gst';
 import GLib from 'gi://GLib';
 import Clutter from 'gi://Clutter';
-import Pango from 'gi://Pango';
 import { gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import { createHoverScrollingLabel, createScrollGroup } from './hoverScrollingLabel.js';
 
 const METADATA_ICON_SIZE = 64;
 
@@ -29,48 +29,6 @@ function _formatElapsedTime(playTimeSeconds) {
         return `${hours}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-}
-
-function _configureTitleLabel(label) {
-    const t = label?.clutter_text;
-    if (!t)
-        return;
-
-    if (t.set_line_wrap)
-        t.set_line_wrap(true);
-    else
-        t.line_wrap = true;
-
-    if (t.set_line_wrap_mode)
-        t.set_line_wrap_mode(Pango.WrapMode.WORD_CHAR);
-    else
-        t.line_wrap_mode = Pango.WrapMode.WORD_CHAR;
-
-    if (t.set_ellipsize)
-        t.set_ellipsize(Pango.EllipsizeMode.END);
-    else
-        t.ellipsize = Pango.EllipsizeMode.END;
-
-    if (t.set_max_lines)
-        t.set_max_lines(2);
-    else
-        t.max_lines = 2;
-}
-
-function _configureSingleLineEllipsize(label) {
-    const t = label?.clutter_text;
-    if (!t)
-        return;
-
-    if (t.set_line_wrap)
-        t.set_line_wrap(false);
-    else
-        t.line_wrap = false;
-
-    if (t.set_ellipsize)
-        t.set_ellipsize(Pango.EllipsizeMode.END);
-    else
-        t.ellipsize = Pango.EllipsizeMode.END;
 }
 
 function _copyToClipboard(text) {
@@ -106,15 +64,19 @@ export function createMetadataItem(playPauseCallback, stopCallback) {
     const textBox = new St.BoxLayout({
         vertical: true,
         style_class: 'metadata-text-box',
-        reactive: true
+        reactive: false
     });
 
-    const titleLabel = new St.Label({
-        text: '',
-        style_class: 'metadata-title',
-        x_expand: true
+    const scrollGroup = createScrollGroup();
+
+    const titleScroll = createHoverScrollingLabel({
+        styleClass: 'metadata-title',
+        clipStyleClass: 'yetanotherradio-hover-scroll yetanotherradio-hover-scroll-title',
+        xExpand: true,
+        multiline: true,
+        maxLines: 2,
+        scrollGroup,
     });
-    _configureTitleLabel(titleLabel);
 
     const copyTrackBtn = new St.Button({
         style_class: 'metadata-copy-button',
@@ -138,16 +100,16 @@ export function createMetadataItem(playPauseCallback, stopCallback) {
         x_expand: true,
         y_align: Clutter.ActorAlign.CENTER
     });
-    titleRow.add_child(titleLabel);
+    titleRow.add_child(titleScroll.actor);
     titleRow.add_child(copyTrackBtn);
     textBox.add_child(titleRow);
 
-    const artistLabel = new St.Label({
-        text: '',
-        style_class: 'metadata-artist'
+    const artistScroll = createHoverScrollingLabel({
+        styleClass: 'metadata-artist',
+        clipStyleClass: 'yetanotherradio-hover-scroll yetanotherradio-hover-scroll-artist',
+        scrollGroup,
     });
-    _configureSingleLineEllipsize(artistLabel);
-    textBox.add_child(artistLabel);
+    textBox.add_child(artistScroll.actor);
 
     const timeLabel = new St.Label({
         text: '00:00',
@@ -230,8 +192,10 @@ export function createMetadataItem(playPauseCallback, stopCallback) {
     item.add_child(box);
 
     item._thumbnail = thumbnail;
-    item._titleLabel = titleLabel;
-    item._artistLabel = artistLabel;
+    item._titleScroll = titleScroll;
+    item._artistScroll = artistScroll;
+    item._titleLabel = titleScroll.label;
+    item._artistLabel = artistScroll.label;
     item._timeLabel = timeLabel;
     item._qualityLabel = qualityLabel;
     item._playPauseBtn = playPauseBtn;
@@ -386,9 +350,9 @@ export function updateMetadataDisplay(settings, metadataItem, nowPlaying, curren
     const bitrate = currentMetadata.bitrate;
     const playTime = _formatElapsedTime(currentMetadata?.playTimeSeconds);
 
-    metadataItem._titleLabel.text = title;
-    metadataItem._artistLabel.text = artist;
-    metadataItem._artistLabel.visible = true;
+    metadataItem._titleScroll.setText(title);
+    metadataItem._artistScroll.setText(artist);
+    metadataItem._artistScroll.actor.visible = true;
     metadataItem._timeLabel.text = playTime;
 
     if (bitrate) {

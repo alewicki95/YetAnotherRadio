@@ -67,6 +67,18 @@ export default class PlaybackManager {
         }
     }
 
+    _waitForNullState() {
+        if (!this._player)
+            return;
+
+        const [, state] = this._player.get_state(0);
+        if (state === Gst.State.NULL)
+            return;
+
+        this._player.set_state(Gst.State.NULL);
+        this._player.get_state(2 * Gst.SECOND);
+    }
+
     get currentMetadata() {
         return this._currentMetadata;
     }
@@ -124,7 +136,6 @@ export default class PlaybackManager {
         }
 
         this._player.set_property('buffer-size', 5242880);
-        this._player.set_property('use-buffering', true);
 
         this._bus = this._player.get_bus();
         this._bus.add_signal_watch();
@@ -195,7 +206,7 @@ export default class PlaybackManager {
             this._currentMetadata.bitrate = null;
             this._currentMetadata.playTimeSeconds = 0;
 
-            this._player.set_state(Gst.State.NULL);
+            this._waitForNullState();
             this._player.set_property('uri', station.url);
 
             const vol = (this._settings.get_int('volume') ?? 100) / 100;
@@ -290,9 +301,8 @@ export default class PlaybackManager {
     }
 
     stop() {
-        if (this._player) {
-            this._player.set_state(Gst.State.NULL);
-        }
+        if (this._player)
+            this._waitForNullState();
 
         this._nowPlaying = null;
         this._playbackState = 'stopped';
@@ -414,6 +424,7 @@ export default class PlaybackManager {
         }
 
         if (this._player) {
+            this._waitForNullState();
             this._player = null;
         }
     }

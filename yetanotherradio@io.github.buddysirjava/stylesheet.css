@@ -17,14 +17,34 @@
 .metadata-title {
     font-weight: bold;
     font-size: 1.1em;
-    max-width: 180px !important;
-    width: 180px !important;
 }
 
 .metadata-artist {
     font-size: 0.9em;
-    max-width: 180px !important;
-    width: 180px !important;
+}
+
+.yetanotherradio-hover-scroll-artist {
+    width: 180px;
+    max-width: 180px;
+    min-height: 1.35em;
+    max-height: 1.35em;
+}
+
+.yetanotherradio-hover-scroll-title {
+    min-width: 0;
+    min-height: 2.6em;
+    max-height: 2.6em;
+}
+
+.yetanotherradio-hover-scroll-station {
+    max-width: 18em;
+    min-width: 0;
+    min-height: 1.2em;
+    max-height: 1.2em;
+}
+
+.yetanotherradio-station-row {
+    spacing: 8px;
 }
 
 .metadata-bottom-row {
@@ -73,10 +93,6 @@ preferencespage preferencesgroup actionrow {
 
 .yetanotherradio-scroll-view {
     max-height: 20em;
-}
-
-.yetanotherradio-station-label {
-    max-width: 18em;
 }
 
 

@@ -1,34 +1,48 @@
 import GLib from 'gi://GLib';
 import St from 'gi://St';
 import Gio from 'gi://Gio';
+import Clutter from 'gi://Clutter';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
-import Pango from 'gi://Pango';
 
 import { stationDisplayName } from '../radioUtils.js';
+import { createHoverScrollingLabel } from './hoverScrollingLabel.js';
 
 export function createStationMenuItem(station, playStationCallback, isNowPlaying = false) {
     const stationName = stationDisplayName(station);
-    const item = new PopupMenu.PopupMenuItem(stationName);
-    
+
+    const item = new PopupMenu.PopupBaseMenuItem({
+        reactive: true,
+        can_focus: true,
+    });
+
     item.connect('activate', () => {
         playStationCallback(station);
     });
 
-    item.label.add_style_class_name('yetanotherradio-station-label');
-    if (item.label?.clutter_text) {
-        item.label.clutter_text.ellipsize = Pango.EllipsizeMode.END;
-        item.label.clutter_text.line_wrap = false;
-    }
-
-    // Force clear separation regardless of theme quirks.
-    item.label.opacity = isNowPlaying ? 140 : 255;
+    const box = new St.BoxLayout({
+        vertical: false,
+        x_expand: true,
+        y_align: Clutter.ActorAlign.CENTER,
+        style_class: 'yetanotherradio-station-row',
+    });
 
     const iconWidget = new St.Icon({
         icon_name: 'audio-x-generic-symbolic',
         icon_size: 16,
-        style_class: 'system-status-icon'
+        style_class: 'system-status-icon',
     });
-    item.insert_child_at_index(iconWidget, 1);
+    box.add_child(iconWidget);
+
+    const nameScroll = createHoverScrollingLabel({
+        styleClass: 'yetanotherradio-station-label',
+        clipStyleClass: 'yetanotherradio-hover-scroll yetanotherradio-hover-scroll-station',
+        xExpand: true,
+    });
+    nameScroll.setText(stationName);
+    nameScroll.setOpacity(isNowPlaying ? 140 : 255);
+    box.add_child(nameScroll.actor);
+
+    item.add_child(box);
 
     if (station.favicon) {
         let valid = false;
